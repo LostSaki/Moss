@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shlex
 from pathlib import Path
 
@@ -19,7 +20,13 @@ from PySide6.QtGui import QDesktopServices
 from moss import __version__
 from moss.components import list_common_verbs, run_verb
 from moss.debugreport import build_debug_report
-from moss.install import add_from_exe, add_from_folder, install_setup
+from moss.install import (
+    add_from_exe,
+    add_single_game_folder,
+    discover_games_in_library,
+    import_discovered,
+    install_setup,
+)
 from moss.launch import active_launch, apply_recipe_by_id, launch_game, stop_active_launch
 from moss.paths import data_dir, logs_dir
 from moss.prefix import apply_windows_version, backup_prefix, delete_prefix, open_prefix_path, prefix_info
@@ -222,6 +229,18 @@ class GeInstallWorker(QThread):
         self.done.emit(bool(result.get("ok")), str(result.get("message") or ""))
 
 
+class LibraryScanWorker(QThread):
+    done = Signal(object)  # list[dict]
+
+    def __init__(self, path: str, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._path = path
+
+    def run(self) -> None:
+        found = discover_games_in_library(Path(self._path))
+        self.done.emit([d.as_dict() for d in found])
+
+
 class MossController(QObject):
     libraryChanged = Signal()
     toast = Signal(str)
@@ -240,6 +259,8 @@ class MossController(QObject):
     antiCheatBlocked = Signal(str, str)
     launchFailed = Signal(str, str, bool, str, str)
     runningChanged = Signal()
+    scanningChanged = Signal()
+    discoveredGames = Signal("QVariant")
 
     def __init__(self, games: GameListModel, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -253,6 +274,8 @@ class MossController(QObject):
         self._upd: UpdateWorker | None = None
         self._ge: GeInstallWorker | None = None
         self._checking_updates = False
+        self._scanning = False
+        self._scan: LibraryScanWorker | None = None
         self._last_update: dict = {
             "available": False,
             "current": __version__,
@@ -367,6 +390,14 @@ class MossController(QObject):
     @Property(bool, notify=onboardingChanged)
     def onboardingComplete(self) -> bool:
         return bool(self._cfg.get("onboarding_complete"))
+
+    @Property(bool, notify=scanningChanged)
+    def scanningLibrary(self) -> bool:
+        return self._scanning
+
+    @Property(str, notify=configChanged)
+    def gamesFolder(self) -> str:
+        return str(self._cfg.get("games_folder") or "")
 
     @Property("QVariant", notify=configChanged)
     def themes(self) -> list:
@@ -528,14 +559,89 @@ class MossController(QObject):
         else:
             self.toast.emit("Clipboard unavailable")
 
+    def _set_games_folder(self, path: str) -> None:
+        cfg = load_config()
+        cfg["games_folder"] = path
+        save_config(cfg)
+        self._reload_cfg()
+
+    def _on_scan_done(self, found) -> None:
+        self._scanning = False
+        self.scanningChanged.emit()
+        rows = list(found or [])
+        if not rows:
+            self.toast.emit("No Windows games found in that folder")
+            return
+        if len(rows) == 1:
+            games = import_discovered(rows)
+            self._games.reload()
+            self.libraryChanged.emit()
+            if games:
+                self.toast.emit(f"Added {games[0].name}")
+            else:
+                self.toast.emit("Already in your library")
+            return
+        self.discoveredGames.emit(rows)
+
     @Slot(str)
-    def addFolder(self, path: str) -> None:
+    def scanGamesFolder(self, path: str = "") -> None:
+        """Multi-game library scan. Empty path uses saved games_folder."""
+        if self._scanning:
+            return
+        folder = (path or "").strip() or str(self._cfg.get("games_folder") or "").strip()
+        if not folder:
+            self.toast.emit("Choose a games folder first")
+            return
+        root = Path(folder)
+        if not root.is_dir():
+            self.toast.emit("That games folder doesn't exist")
+            return
+        self._set_games_folder(str(root.resolve()))
+        self._scanning = True
+        self.scanningChanged.emit()
+        self._scan = LibraryScanWorker(str(root.resolve()), self)
+        self._scan.done.connect(self._on_scan_done)
+        self._scan.start()
+
+    @Slot(str)
+    def addGameFolder(self, path: str) -> None:
+        """Add exactly one game from a specific folder."""
         if not path:
             return
-        add_from_folder(Path(path))
+        game = add_single_game_folder(Path(path))
         self._games.reload()
         self.libraryChanged.emit()
-        self.toast.emit("Games added")
+        if game:
+            self.toast.emit(f"Added {game.name}")
+        else:
+            self.toast.emit("No Windows game found in that folder")
+
+    @Slot(str)
+    def addFolder(self, path: str) -> None:
+        # Back-compat: treat as specific game folder
+        self.addGameFolder(path)
+
+    @Slot(str)
+    def importDiscovered(self, payload: str) -> None:
+        """Import selected discover hits. payload is JSON list of {exe,name,...}."""
+        try:
+            items = json.loads(payload) if payload else []
+        except json.JSONDecodeError:
+            self.toast.emit("Couldn't import selection")
+            return
+        if not isinstance(items, list) or not items:
+            self.toast.emit("Nothing selected")
+            return
+        games = import_discovered(items)
+        self._games.reload()
+        self.libraryChanged.emit()
+        n = len(games)
+        if n == 0:
+            self.toast.emit("Those games are already in your library")
+        elif n == 1:
+            self.toast.emit(f"Added {games[0].name}")
+        else:
+            self.toast.emit(f"Added {n} games")
 
     @Slot(str)
     def addExe(self, path: str) -> None:
@@ -673,7 +779,12 @@ class MossController(QObject):
         cfg["onboarding_complete"] = True
         save_config(cfg)
         self._reload_cfg()
-        self.toast.emit("Welcome to Moss")
+        folder = str(cfg.get("games_folder") or "").strip()
+        if folder and Path(folder).is_dir():
+            self.toast.emit("Welcome to Moss — scanning your games folder")
+            self.scanGamesFolder(folder)
+        else:
+            self.toast.emit("Welcome to Moss")
 
     @Slot(result="QVariant")
     def listRuntimes(self):
@@ -877,3 +988,9 @@ class MossController(QObject):
     @Slot(str, result=str)
     def localPath(self, url: str) -> str:
         return QUrl(str(url)).toLocalFile()
+
+    @Slot(str, result=str)
+    def urlFromPath(self, path: str) -> str:
+        if not path:
+            return ""
+        return QUrl.fromLocalFile(str(Path(path))).toString()

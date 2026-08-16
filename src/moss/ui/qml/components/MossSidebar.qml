@@ -11,6 +11,7 @@ Item {
     signal addFolder()
     signal addExe()
     signal addInstall()
+    signal scanLibrary()
 
     Rectangle {
         anchors.fill: parent
@@ -93,6 +94,39 @@ Item {
         Item { Layout.fillHeight: true }
 
         Button {
+            id: scanBtn
+            Layout.fillWidth: true
+            Layout.leftMargin: Theme.space8
+            Layout.rightMargin: Theme.space8
+            Layout.bottomMargin: Theme.space8
+            implicitHeight: 36
+            enabled: !moss.scanningLibrary
+            text: moss.scanningLibrary ? "Scanning…" : "Scan library"
+            font.pixelSize: Theme.fontSecondary
+            font.weight: Font.Medium
+            ToolTip.visible: hovered
+            ToolTip.delay: 400
+            ToolTip.text: "Find Windows games in your library folder"
+            background: Rectangle {
+                radius: Theme.radiusMedium
+                color: parent.down ? Theme.surfaceSelected
+                     : parent.hovered ? Theme.surfaceHover
+                     : "transparent"
+                border.width: 1
+                border.color: Theme.border
+                Behavior on color { ColorAnimation { duration: Theme.durationFast } }
+            }
+            contentItem: Text {
+                text: parent.text
+                color: parent.enabled ? Theme.textSecondary : Theme.textDisabled
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                font: parent.font
+            }
+            onClicked: root.scanLibrary()
+        }
+
+        Button {
             Layout.fillWidth: true
             Layout.leftMargin: Theme.space8
             Layout.rightMargin: Theme.space8
@@ -125,7 +159,7 @@ Item {
                     border.color: Theme.border
                     radius: Theme.radiusMedium
                 }
-                MenuItem { text: "Add Game Folder"; onTriggered: root.addFolder() }
+                MenuItem { text: "Add this game folder…"; onTriggered: root.addFolder() }
                 MenuItem { text: "Add EXE"; onTriggered: root.addExe() }
                 MenuItem { text: "Install Windows Game"; onTriggered: root.addInstall() }
             }

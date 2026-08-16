@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Moss
+GenericName=Windows Game Launcher
+Comment=Native Linux/SteamOS launcher for Windows games via Proton/Wine
+Exec=moss
+Icon=moss
+Terminal=false
+Categories=Game;Utility;
+Keywords=proton;wine;steam;windows;games;
+StartupWMClass=Moss

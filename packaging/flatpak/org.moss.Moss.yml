@@ -1,0 +1,28 @@
+app-id: org.moss.Moss
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: moss
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=home
+  - --filesystem=/mnt
+  - --filesystem=/run/media
+modules:
+  - name: moss
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 Moss /app/bin/moss
+      - install -Dm644 org.moss.Moss.desktop /app/share/applications/org.moss.Moss.desktop
+      - install -Dm644 moss.png /app/share/icons/hicolor/256x256/apps/org.moss.Moss.png
+    sources:
+      - type: file
+        path: Moss
+      - type: file
+        path: org.moss.Moss.desktop
+      - type: file
+        path: moss.png

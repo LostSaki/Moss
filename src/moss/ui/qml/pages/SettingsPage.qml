@@ -110,11 +110,18 @@ Item {
                 MossSection {
                     visible: root.section === "general"
                     title: "General"
-                    description: "Where Moss looks when adding games, and preferred runtime mode."
+                    description: "Parent folder that contains your games, and preferred runtime mode."
                     Column {
                         width: parent.width
                         spacing: Theme.space12
-                        Text { text: "Games folder"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+                        Text { text: "Games library folder"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: "A folder with one directory per game. Scan finds Windows .exe titles inside."
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontCaption
+                        }
                         RowLayout {
                             width: parent.width
                             spacing: Theme.space8
@@ -127,6 +134,14 @@ Item {
                                 background: Rectangle { radius: Theme.radiusSmall; color: fieldBg(); border.width: 1; border.color: Theme.border }
                             }
                             MossSecondaryButton { text: "Browse"; onClicked: folderDlg.open() }
+                        }
+                        MossButton {
+                            text: moss.scanningLibrary ? "Scanning…" : "Scan library"
+                            enabled: !moss.scanningLibrary && gamesFolder.text.trim().length > 0
+                            onClicked: {
+                                saveCore()
+                                moss.scanGamesFolder(gamesFolder.text.trim())
+                            }
                         }
                         Text { text: "Preferred runtime"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
                         ComboBox {

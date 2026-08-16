@@ -74,9 +74,16 @@ Dialog {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: "Where should Moss look for games?"
+                    text: "Where is your games library folder?"
                     color: Theme.textPrimary
                     font.pixelSize: Theme.fontBody
+                }
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: "Pick the parent folder that contains your games (one folder per title). Moss can scan it after setup."
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSecondary
                 }
                 RowLayout {
                     width: parent.width
@@ -85,7 +92,7 @@ Dialog {
                         id: folderField
                         Layout.fillWidth: true
                         text: root.gamesFolder
-                        placeholderText: "Games folder"
+                        placeholderText: "Games library folder"
                         color: Theme.textPrimary
                         onTextChanged: root.gamesFolder = text
                         background: Rectangle {
