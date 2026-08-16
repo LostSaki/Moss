@@ -105,6 +105,13 @@ Item {
             onClicked: addMenu.open()
             Menu {
                 id: addMenu
+                background: Rectangle {
+                    implicitWidth: 220
+                    color: Theme.panelFill
+                    border.width: 1
+                    border.color: Theme.border
+                    radius: Theme.radiusMedium
+                }
                 MenuItem { text: "Add Game Folder"; onTriggered: root.addFolder() }
                 MenuItem { text: "Add EXE"; onTriggered: root.addExe() }
                 MenuItem { text: "Install Windows Game"; onTriggered: root.addInstall() }

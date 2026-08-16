@@ -10,11 +10,12 @@ ApplicationWindow {
     width: 1180
     height: 740
     title: "Moss"
-    color: Theme.background
+    color: Theme.windowFill
 
     property string bannerText: ""
     property string bannerUrl: ""
     property string logBuffer: ""
+    property string antiCheatMessage: ""
 
     Component.onCompleted: {
         Theme.syncFromController(moss)
@@ -38,6 +39,11 @@ ApplicationWindow {
         }
         function onThemeChanged() { Theme.syncFromController(moss) }
         function onGlassChanged() { Theme.setGlass(moss.glassEnabled) }
+        function onAntiCheatBlocked(message, log) {
+            antiCheatMessage = message || "This title uses unsupported anti-cheat."
+            logBuffer = log || ""
+            antiCheatDialog.open()
+        }
         function onOnboardingChanged() {
             if (!moss.onboardingComplete && !onboarding.visible) {
                 onboarding.prepare()
@@ -88,27 +94,38 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
+                // Content sits on opaque surface so glass sidebar has contrast against wash
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.background
+                    opacity: Theme.glassEnabled ? 0.92 : 1.0
+                }
+
                 LibraryPage {
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
                     visible: moss.page === "library"
+                    z: 1
                 }
                 GamePage {
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
                     visible: moss.page === "game"
+                    z: 1
                     onEditConfig: gameConfig.openFor(moss.current.gameId)
                 }
                 SettingsPage {
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
                     visible: moss.page === "settings"
+                    z: 1
                 }
                 LogsPage {
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
                     visible: moss.page === "logs"
                     logText: logBuffer
+                    z: 1
                 }
             }
         }
@@ -128,6 +145,17 @@ ApplicationWindow {
     InstallDialog { id: installDlg }
     OnboardingDialog { id: onboarding }
     GameConfigDialog { id: gameConfig }
+
+    ConfirmDialog {
+        id: antiCheatDialog
+        titleText: "Anti-cheat not supported"
+        message: antiCheatMessage + "\n\nMoss will not keep retrying. Check Logs if you need the raw output."
+        confirmLabel: "View Logs"
+        cancelLabel: "Dismiss"
+        onAccepted: {
+            moss.loadLog(moss.current.gameId || "")
+        }
+    }
 
     Rectangle {
         id: toast

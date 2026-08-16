@@ -76,6 +76,13 @@ Item {
                     onClicked: moreMenu.open()
                     Menu {
                         id: moreMenu
+                        background: Rectangle {
+                            implicitWidth: 200
+                            color: Theme.panelFill
+                            border.width: 1
+                            border.color: Theme.border
+                            radius: Theme.radiusMedium
+                        }
                         MenuItem { text: "Configure…"; onTriggered: root.editConfig() }
                         MenuItem { text: "View Logs"; onTriggered: moss.loadLog(moss.current.gameId) }
                         MenuItem { text: "Open Prefix"; onTriggered: moss.openGamePrefix(moss.current.gameId) }
@@ -107,6 +114,38 @@ Item {
         anchors.right: parent.right
         anchors.topMargin: Theme.space24
         spacing: 0
+
+        Rectangle {
+            visible: !!(moss.current.antiCheatHint)
+            width: parent.width
+            height: antiCol.implicitHeight + Theme.space16
+            radius: Theme.radiusMedium
+            color: Theme.accentSurface
+            border.width: 1
+            border.color: Theme.border
+            Column {
+                id: antiCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: Theme.space12
+                spacing: Theme.space4
+                Text {
+                    text: "Anti-cheat"
+                    color: Theme.warning
+                    font.pixelSize: Theme.fontCaption
+                    font.weight: Font.DemiBold
+                }
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: moss.current.antiCheatHint || ""
+                    color: Theme.textSecondary
+                    font.pixelSize: Theme.fontSecondary
+                }
+            }
+        }
+        Item { visible: !!(moss.current.antiCheatHint); width: 1; height: Theme.space16 }
 
         Repeater {
             model: [

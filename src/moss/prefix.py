@@ -126,3 +126,46 @@ def delete_prefix(game_id: str) -> dict[str, Any]:
     except OSError as exc:
         return {"ok": False, "message": f"Delete failed: {exc}", "path": str(root)}
     return {"ok": True, "message": "Prefix deleted.", "path": str(root)}
+
+
+# winecfg -v values
+_WINVER_MAP = {
+    "win10": "win10",
+    "win7": "win7",
+    "winxp": "winxp",
+}
+
+
+def apply_windows_version(runtime: Runtime | None, prefix: Path, version: str) -> dict[str, Any]:
+    """Apply Windows version via winecfg -v. No-op on missing runtime / empty version."""
+    ver = (version or "").strip()
+    if not ver:
+        return {"ok": True, "message": "Using default Windows version.", "skipped": True}
+    if ver not in _WINVER_MAP:
+        return {"ok": False, "message": f"Unknown Windows version: {ver}", "skipped": False}
+    if os.name != "posix":
+        return {
+            "ok": False,
+            "message": "Windows version apply requires Linux/SteamOS (winecfg).",
+            "skipped": True,
+        }
+    if runtime is None:
+        return {"ok": False, "message": "No runtime available for winecfg.", "skipped": True}
+    mapped = _WINVER_MAP[ver]
+    env = wine_env(runtime, prefix)
+    try:
+        if runtime.kind == "proton":
+            cmd = [str(runtime.binary), "run", "winecfg", "-v", mapped]
+        else:
+            cmd = [str(runtime.binary), "winecfg", "-v", mapped]
+        proc = subprocess.run(cmd, env=env, check=False, timeout=90, capture_output=True, text=True)
+        if proc.returncode == 0:
+            return {"ok": True, "message": f"Windows version set to {mapped}.", "skipped": False}
+        detail = (proc.stderr or proc.stdout or "").strip()[-200:]
+        return {
+            "ok": False,
+            "message": f"winecfg failed ({proc.returncode}). {detail}",
+            "skipped": False,
+        }
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"ok": False, "message": f"winecfg error: {exc}", "skipped": False}

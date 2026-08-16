@@ -18,11 +18,15 @@ def test_default_config_has_theme_keys() -> None:
 
 
 def test_theme_tokens_and_list() -> None:
-    assert set(THEMES) == {"moss_dark", "high_contrast", "soft_glass"}
+    assert "moss_dark" in THEMES
+    assert "soft_glass" in THEMES
+    assert "moss_light" in THEMES
     assert theme_tokens("high_contrast")["background"] == "#000000"
     assert theme_tokens("missing")["accent"] == "#7FAF82"
     labels = {t["id"]: t["label"] for t in list_themes()}
     assert labels["soft_glass"] == "Soft Glass"
+    assert labels["ember"] == "Ember"
+    assert float(theme_tokens("moss_dark")["glassOpacity"]) == 0.72
 
 
 def test_game_new_fields_roundtrip(tmp_path: Path, monkeypatch) -> None:

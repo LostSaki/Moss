@@ -227,7 +227,7 @@ Dialog {
                         }
                         onClicked: {
                             root.themeId = modelData.id
-                            if (modelData.id === "soft_glass")
+                            if (modelData.id === "soft_glass" || modelData.id === "mist")
                                 root.glassOn = true
                         }
                     }

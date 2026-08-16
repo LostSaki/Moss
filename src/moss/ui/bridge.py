@@ -16,10 +16,11 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices
 
+from moss.components import list_common_verbs, run_verb
 from moss.install import add_from_exe, add_from_folder, install_setup
 from moss.launch import launch_game
 from moss.paths import data_dir, logs_dir
-from moss.prefix import backup_prefix, delete_prefix, open_prefix_path, prefix_info
+from moss.prefix import apply_windows_version, backup_prefix, delete_prefix, open_prefix_path, prefix_info
 from moss.runtime import (
     detect_runtime,
     install_proton_ge,
@@ -28,9 +29,9 @@ from moss.runtime import (
     set_default_runtime,
 )
 from moss.store import WINDOWS_VERSIONS, delete_game, get_game, load_config, load_library, save_config, upsert
-from moss.themes import list_themes, theme_tokens
+from moss.themes import AUTO_GLASS_THEMES, THEMES, list_themes, theme_tokens
 from moss.updatecheck import REPO_URL, check_for_update
-
+from moss.wrappers import host_tools_summary
 
 def _file_url(path: str) -> str:
     if not path or not Path(path).is_file():
@@ -167,7 +168,7 @@ class GameListModel(QAbstractListModel):
 
 
 class LaunchWorker(QThread):
-    finished_ok = Signal(str, bool, str)
+    finished_ok = Signal(str, bool, str, bool, str)
 
     def __init__(self, game_id: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -176,14 +177,16 @@ class LaunchWorker(QThread):
     def run(self) -> None:
         game = get_game(self._game_id)
         if not game:
-            self.finished_ok.emit(self._game_id, False, "Unknown game")
+            self.finished_ok.emit(self._game_id, False, "Unknown game", False, "")
             return
         result = launch_game(game)
         log = result.get("log") or ""
         tried = result.get("tried") or []
         if tried:
             log = "Tried: " + "; ".join(tried) + "\n\n" + log
-        self.finished_ok.emit(self._game_id, bool(result.get("ok")), log)
+        anti = bool(result.get("anti_cheat"))
+        msg = str(result.get("message") or "")
+        self.finished_ok.emit(self._game_id, bool(result.get("ok")), log, anti, msg)
 
 
 class UpdateWorker(QThread):
@@ -216,6 +219,7 @@ class MossController(QObject):
     glassChanged = Signal()
     runtimesChanged = Signal()
     onboardingChanged = Signal()
+    antiCheatBlocked = Signal(str, str)
 
     def __init__(self, games: GameListModel, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -331,6 +335,12 @@ class MossController(QObject):
             "envVars": _env_to_lines(g.env_vars),
             "windowsVersion": g.windows_version or "",
             "dllOverrides": _env_to_lines(g.dll_overrides),
+            "dxvkEnabled": bool(g.dxvk_enabled),
+            "vkd3dEnabled": bool(g.vkd3d_enabled),
+            "gamescopeEnabled": bool(g.gamescope_enabled),
+            "mangohudEnabled": bool(g.mangohud_enabled),
+            "gamemodeEnabled": bool(g.gamemode_enabled),
+            "antiCheatHint": "",
         }
 
     @Slot(str)
@@ -358,12 +368,20 @@ class MossController(QObject):
         self._worker.finished_ok.connect(self._play_done)
         self._worker.start()
 
-    def _play_done(self, game_id: str, ok: bool, log: str) -> None:
+    def _play_done(self, game_id: str, ok: bool, log: str, anti_cheat: bool = False, message: str = "") -> None:
         self._busy = False
         self.busyChanged.emit()
         self._games.reload()
         self.libraryChanged.emit()
         self.openGame(game_id)
+        if anti_cheat:
+            hint = message or "This title uses unsupported anti-cheat under Proton/Wine."
+            if self._current.get("gameId") == game_id:
+                self._current = {**self._current, "antiCheatHint": hint}
+                self.currentChanged.emit()
+            self.logReady.emit(log)
+            self.antiCheatBlocked.emit(hint, log)
+            return
         if not ok:
             self.logReady.emit(log)
             self.error.emit("Launch finished with errors")
@@ -483,8 +501,9 @@ class MossController(QObject):
     @Slot(str)
     def setTheme(self, theme_id: str) -> None:
         cfg = load_config()
-        cfg["theme"] = theme_id if theme_id in ("moss_dark", "high_contrast", "soft_glass") else "moss_dark"
-        if theme_id == "soft_glass":
+        tid = theme_id if theme_id in THEMES else "moss_dark"
+        cfg["theme"] = tid
+        if tid in AUTO_GLASS_THEMES:
             cfg["glass_enabled"] = True
         save_config(cfg)
         self._reload_cfg()
@@ -572,6 +591,12 @@ class MossController(QObject):
             "windowsVersion": g.windows_version or "",
             "dllOverrides": "\n".join(_env_to_lines(g.dll_overrides)),
             "windowsVersions": [v for v in WINDOWS_VERSIONS],
+            "dxvkEnabled": bool(g.dxvk_enabled),
+            "vkd3dEnabled": bool(g.vkd3d_enabled),
+            "gamescopeEnabled": bool(g.gamescope_enabled),
+            "gamescopeArgs": g.gamescope_args or "",
+            "mangohudEnabled": bool(g.mangohud_enabled),
+            "gamemodeEnabled": bool(g.gamemode_enabled),
         }
 
     @Slot("QVariant")
@@ -608,17 +633,77 @@ class MossController(QObject):
                 g.dll_overrides = _lines_to_env(str(dll_raw or "").splitlines())
         if "runnerId" in data:
             g.runner_id = str(data.get("runnerId") or "").strip()
+        prev_win = g.windows_version
         if "windowsVersion" in data:
             win = str(data.get("windowsVersion") or "").strip()
             g.windows_version = win if win in WINDOWS_VERSIONS else ""
         if "favorite" in data:
             g.favorite = bool(data["favorite"])
+        if "dxvkEnabled" in data:
+            g.dxvk_enabled = bool(data["dxvkEnabled"])
+        if "vkd3dEnabled" in data:
+            g.vkd3d_enabled = bool(data["vkd3dEnabled"])
+        if "gamescopeEnabled" in data:
+            g.gamescope_enabled = bool(data["gamescopeEnabled"])
+        if "gamescopeArgs" in data:
+            g.gamescope_args = str(data.get("gamescopeArgs") or "").strip()
+        if "mangohudEnabled" in data:
+            g.mangohud_enabled = bool(data["mangohudEnabled"])
+        if "gamemodeEnabled" in data:
+            g.gamemode_enabled = bool(data["gamemodeEnabled"])
         upsert(g)
+
+        # Apply winecfg when Windows version changes
+        if g.windows_version and g.windows_version != prev_win:
+            rt = detect_runtime(g)
+            if rt and Path(g.prefix).exists():
+                result = apply_windows_version(rt, Path(g.prefix), g.windows_version)
+                if result.get("message"):
+                    self.toast.emit(str(result["message"]))
+
         self._games.reload()
         self.libraryChanged.emit()
         if self._current.get("gameId") == game_id:
             self.openGame(game_id)
         self.toast.emit("Game settings saved")
+
+    @Slot(result="QVariant")
+    def hostTools(self):
+        return host_tools_summary()
+
+    @Slot(str, result="QVariant")
+    def listWinetricksVerbs(self, game_id: str):
+        g = get_game(game_id)
+        installed = list(g.verbs) if g else []
+        return list_common_verbs(installed)
+
+    @Slot(str, str)
+    def runWinetricksVerb(self, game_id: str, verb: str) -> None:
+        g = get_game(game_id)
+        if not g or not verb:
+            self.toast.emit("No game or verb selected")
+            return
+        rt = detect_runtime(g)
+        if rt is None:
+            self.toast.emit("No Proton/Wine runtime found")
+            return
+        prefix = Path(g.prefix)
+        if not prefix.exists():
+            from moss.prefix import create_prefix
+
+            prefix = create_prefix(g.id, rt)
+            g.prefix = str(prefix)
+        ok = run_verb(rt, prefix, verb)
+        if ok:
+            if verb not in g.verbs:
+                g.verbs.append(verb)
+                upsert(g)
+            self.toast.emit(f"Installed {verb}")
+            self._games.reload()
+            if self._current.get("gameId") == game_id:
+                self.openGame(game_id)
+        else:
+            self.toast.emit(f"Failed to run winetricks {verb} (is winetricks installed?)")
 
     @Slot(str, result=str)
     def localPath(self, url: str) -> str:

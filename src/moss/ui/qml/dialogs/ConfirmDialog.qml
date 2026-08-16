@@ -6,10 +6,12 @@ Dialog {
     id: root
     property string titleText: "Confirm"
     property string message: ""
+    property string confirmLabel: "OK"
+    property string cancelLabel: "Cancel"
     title: titleText
     modal: true
-    standardButtons: Dialog.Ok | Dialog.Cancel
-    width: 400
+    standardButtons: Dialog.NoButton
+    width: 420
 
     background: Rectangle {
         color: Theme.panelFill
@@ -18,11 +20,27 @@ Dialog {
         radius: Theme.radiusLarge
     }
 
-    Text {
+    contentItem: Column {
         width: parent.width
-        wrapMode: Text.WordWrap
-        text: root.message
-        color: Theme.textSecondary
-        font.pixelSize: Theme.fontSecondary
+        spacing: Theme.space16
+        Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: root.message
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSecondary
+        }
+        Row {
+            anchors.right: parent.right
+            spacing: Theme.space8
+            MossSecondaryButton {
+                text: root.cancelLabel
+                onClicked: root.reject()
+            }
+            MossButton {
+                text: root.confirmLabel
+                onClicked: root.accept()
+            }
+        }
     }
 }

@@ -9,6 +9,28 @@ from moss.store import Game, upsert
 
 DEFAULT_VERBS = ("d3dcompiler_47", "vcrun2019")
 
+# Curated common winetricks verbs for the browser UI
+COMMON_VERBS: tuple[tuple[str, str], ...] = (
+    ("vcrun2019", "Visual C++ 2015–2019"),
+    ("vcrun2022", "Visual C++ 2022"),
+    ("d3dcompiler_47", "D3D Compiler 47"),
+    ("d3dx9", "Direct3D 9 extras"),
+    ("dotnet48", ".NET Framework 4.8"),
+    ("corefonts", "Core fonts"),
+    ("faudio", "FAudio"),
+    ("xact", "XACT / XAudio"),
+    ("vkd3d", "VKD3D (winetricks)"),
+    ("dxvk", "DXVK (winetricks)"),
+)
+
+
+def list_common_verbs(installed: list[str] | None = None) -> list[dict[str, object]]:
+    have = set(installed or [])
+    return [
+        {"id": vid, "label": label, "installed": vid in have}
+        for vid, label in COMMON_VERBS
+    ]
+
 
 def needed_verbs(game: Game) -> list[str]:
     have = set(game.verbs)

@@ -40,10 +40,13 @@ QtObject {
 
     // Glass
     property bool glassEnabled: false
-    property real glassOpacity: 0.88
+    property real glassOpacity: 0.72
     property color panel: backgroundElevated
     property real panelOpacity: 1.0
     property color panelFill: backgroundElevated
+    // Contrasting underlay so translucent panels read when glass is on
+    property color glassWash: backgroundDeep
+    property color windowFill: background
 
     // Radius (4–10 only)
     property int radiusSmall: 4
@@ -141,7 +144,16 @@ QtObject {
         panelFill = glassEnabled
             ? Qt.rgba(backgroundElevated.r, backgroundElevated.g, backgroundElevated.b, glassOpacity)
             : backgroundElevated
-        sidebar = backgroundElevated
+        // Soft botanical wash behind chrome when glass is on
+        glassWash = glassEnabled
+            ? Qt.rgba(
+                (backgroundDeep.r * 0.7 + accent.r * 0.3),
+                (backgroundDeep.g * 0.7 + accent.g * 0.3),
+                (backgroundDeep.b * 0.7 + accent.b * 0.3),
+                1.0)
+            : backgroundDeep
+        windowFill = glassEnabled ? glassWash : background
+        sidebar = glassEnabled ? panelFill : backgroundElevated
         surfaceElevated = surfaceRaised
         radius = radiusMedium
         space = space16

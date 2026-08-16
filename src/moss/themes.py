@@ -33,8 +33,11 @@ _LAYOUT: dict[str, Any] = {
     "searchWidth": 260,
     "durationFast": 140,
     "durationNormal": 160,
-    "glassOpacity": 0.88,
+    "glassOpacity": 0.72,
 }
+
+# Themes that auto-enable glass when selected
+AUTO_GLASS_THEMES = frozenset({"soft_glass", "mist"})
 
 
 MOSS_DARK: dict[str, Any] = {
@@ -113,19 +116,133 @@ SOFT_GLASS: dict[str, Any] = {
     "warning": "#D4B06A",
     "error": "#D07A7A",
     "info": "#8AA8C0",
-    "glassOpacity": 0.9,
+    "glassOpacity": 0.78,
+}
+
+MOSS_LIGHT: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#F4F5F2",
+    "backgroundElevated": "#EAECE7",
+    "backgroundDeep": "#E0E3DC",
+    "surface": "#FFFFFF",
+    "surfaceRaised": "#F7F8F5",
+    "surfaceHover": "#E4E7E1",
+    "surfaceSelected": "#D8DDD4",
+    "border": "#C5CBC0",
+    "borderStrong": "#9AA394",
+    "divider": "#D5DAD0",
+    "textPrimary": "#1A1C19",
+    "textSecondary": "#4A4F48",
+    "textMuted": "#6E756C",
+    "textDisabled": "#9AA394",
+    "accent": "#5E8F62",
+    "accentHover": "#4E7A52",
+    "accentPressed": "#3F6643",
+    "accentSurface": "#DCE8DD",
+    "success": "#5E8F62",
+    "warning": "#B8860B",
+    "error": "#B54A4A",
+    "info": "#5A7A96",
+    "glassOpacity": 0.78,
+}
+
+DEEP_FOREST: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#0A0E0A",
+    "backgroundElevated": "#0F140F",
+    "backgroundDeep": "#060806",
+    "surface": "#141A14",
+    "surfaceRaised": "#1A221A",
+    "surfaceHover": "#222C22",
+    "surfaceSelected": "#2A362A",
+    "border": "#2A352A",
+    "borderStrong": "#3A483A",
+    "divider": "#1E261E",
+    "textPrimary": "#E8EDE6",
+    "textSecondary": "#A8B3A6",
+    "textMuted": "#6A7568",
+    "textDisabled": "#454E44",
+    "accent": "#6A9A6E",
+    "accentHover": "#7AAB7E",
+    "accentPressed": "#5A8A5E",
+    "accentSurface": "#152015",
+    "success": "#6A9A6E",
+    "warning": "#C4A050",
+    "error": "#B85C5C",
+    "info": "#6A8AA8",
+}
+
+EMBER: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#161210",
+    "backgroundElevated": "#1C1714",
+    "backgroundDeep": "#0E0C0A",
+    "surface": "#221C18",
+    "surfaceRaised": "#2A231E",
+    "surfaceHover": "#342C26",
+    "surfaceSelected": "#3E342C",
+    "border": "#4A4038",
+    "borderStrong": "#5C5046",
+    "divider": "#322A24",
+    "textPrimary": "#F2EDE6",
+    "textSecondary": "#C4B8AA",
+    "textMuted": "#8A7E72",
+    "textDisabled": "#5C534A",
+    "accent": "#D1A85A",
+    "accentHover": "#DFB86A",
+    "accentPressed": "#B8924A",
+    "accentSurface": "#2A2418",
+    "success": "#8FAF7A",
+    "warning": "#D1A85A",
+    "error": "#C96B6B",
+    "info": "#8AA0B0",
+}
+
+MIST: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#121614",
+    "backgroundElevated": "#181E1B",
+    "backgroundDeep": "#0A0D0B",
+    "surface": "#1E2521",
+    "surfaceRaised": "#262E29",
+    "surfaceHover": "#303833",
+    "surfaceSelected": "#3A433D",
+    "border": "#3E4842",
+    "borderStrong": "#4E5A52",
+    "divider": "#2A322E",
+    "textPrimary": "#EEF2EF",
+    "textSecondary": "#B8C2BC",
+    "textMuted": "#84908A",
+    "textDisabled": "#56605A",
+    "accent": "#7FAF9A",
+    "accentHover": "#91BEAC",
+    "accentPressed": "#6E9B86",
+    "accentSurface": "#1A2A24",
+    "success": "#7FAF9A",
+    "warning": "#D1B06A",
+    "error": "#C97A7A",
+    "info": "#8AA8B8",
+    "glassOpacity": 0.7,
 }
 
 THEMES: dict[str, dict[str, Any]] = {
     "moss_dark": MOSS_DARK,
     "high_contrast": HIGH_CONTRAST,
     "soft_glass": SOFT_GLASS,
+    "moss_light": MOSS_LIGHT,
+    "deep_forest": DEEP_FOREST,
+    "ember": EMBER,
+    "mist": MIST,
 }
 
 THEME_LABELS: dict[str, str] = {
     "moss_dark": "Moss Dark",
     "high_contrast": "High Contrast",
     "soft_glass": "Soft Glass",
+    "moss_light": "Moss Light",
+    "deep_forest": "Deep Forest",
+    "ember": "Ember",
+    "mist": "Mist",
 }
 
 

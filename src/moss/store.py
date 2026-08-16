@@ -28,6 +28,12 @@ class Game:
     runner_id: str = ""
     windows_version: str = ""
     dll_overrides: dict[str, str] = field(default_factory=dict)
+    dxvk_enabled: bool = True
+    vkd3d_enabled: bool = True
+    gamescope_enabled: bool = False
+    gamescope_args: str = ""
+    mangohud_enabled: bool = False
+    gamemode_enabled: bool = False
 
     def exe_path(self) -> Path:
         return Path(self.exe)
@@ -80,6 +86,18 @@ def _game_from_dict(item: dict[str, Any]) -> Game:
     data.setdefault("runner_id", "")
     data.setdefault("working_dir", "")
     data.setdefault("launch_args", "")
+    data.setdefault("dxvk_enabled", True)
+    data.setdefault("vkd3d_enabled", True)
+    data.setdefault("gamescope_enabled", False)
+    data.setdefault("gamescope_args", "")
+    data.setdefault("mangohud_enabled", False)
+    data.setdefault("gamemode_enabled", False)
+    data["dxvk_enabled"] = bool(data.get("dxvk_enabled", True))
+    data["vkd3d_enabled"] = bool(data.get("vkd3d_enabled", True))
+    data["gamescope_enabled"] = bool(data.get("gamescope_enabled", False))
+    data["mangohud_enabled"] = bool(data.get("mangohud_enabled", False))
+    data["gamemode_enabled"] = bool(data.get("gamemode_enabled", False))
+    data["gamescope_args"] = str(data.get("gamescope_args") or "")
     return Game(**data)
 
 

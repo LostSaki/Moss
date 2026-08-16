@@ -9,11 +9,13 @@ Dialog {
     modal: true
     anchors.centerIn: Overlay.overlay
     width: Math.min(560, parent ? parent.width - 48 : 560)
-    height: Math.min(620, parent ? parent.height - 48 : 620)
+    height: Math.min(720, parent ? parent.height - 48 : 720)
     title: "Game settings"
     standardButtons: Dialog.Save | Dialog.Cancel
     property string gameId: ""
     property var runtimes: []
+    property var winetricksVerbs: []
+    property var hostTools: ({ gamescope: false, mangohud: false, gamemode: false })
 
     background: Rectangle {
         color: Theme.panelFill
@@ -89,17 +91,8 @@ Dialog {
                 valueRole: "id"
                 model: root.runtimes
             }
-            Text {
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: root.runtimes.length <= 1
-                      ? "No local Proton/Wine detected — using system default when available."
-                      : "Per-game runner overrides Settings default."
-                color: Theme.textMuted
-                font.pixelSize: Theme.fontCaption
-            }
 
-            Text { text: "Windows version (stored; winecfg apply later)"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+            Text { text: "Windows version"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
             ComboBox {
                 id: winBox
                 Layout.preferredWidth: 200
@@ -112,11 +105,41 @@ Dialog {
                 textRole: "label"
                 valueRole: "id"
             }
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: "Applied with winecfg on Linux when you save or launch."
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontCaption
+            }
+
+            MossToggle { id: dxvkToggle; text: "DXVK" }
+            MossToggle { id: vkd3dToggle; text: "VKD3D (D3D12)" }
+            MossToggle {
+                id: gamescopeToggle
+                text: "Gamescope" + (root.hostTools.gamescope ? "" : " (not found)")
+            }
+            TextField {
+                id: gamescopeArgsField
+                Layout.fillWidth: true
+                enabled: gamescopeToggle.checked
+                color: Theme.textPrimary
+                placeholderText: "Gamescope args (optional)"
+                background: Rectangle { radius: Theme.radiusSmall; color: fieldBg(); border.width: 1; border.color: Theme.border }
+            }
+            MossToggle {
+                id: mangohudToggle
+                text: "MangoHud" + (root.hostTools.mangohud ? "" : " (not found)")
+            }
+            MossToggle {
+                id: gamemodeToggle
+                text: "GameMode" + (root.hostTools.gamemode ? "" : " (not found)")
+            }
 
             Text { text: "Environment (KEY=value per line)"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
             ScrollView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 88
+                Layout.preferredHeight: 72
                 TextArea {
                     id: envField
                     wrapMode: TextEdit.NoWrap
@@ -126,10 +149,10 @@ Dialog {
                 }
             }
 
-            Text { text: "DLL overrides (dll=n,b per line → WINEDLLOVERRIDES)"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+            Text { text: "DLL overrides (dll=n,b per line)"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
             ScrollView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 72
+                Layout.preferredHeight: 64
                 TextArea {
                     id: dllField
                     wrapMode: TextEdit.NoWrap
@@ -137,6 +160,26 @@ Dialog {
                     font.pixelSize: Theme.fontSecondary
                     font.family: "monospace"
                     placeholderText: "d3d11=n,b"
+                }
+            }
+
+            Text { text: "Winetricks"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+            RowLayout {
+                Layout.fillWidth: true
+                ComboBox {
+                    id: verbBox
+                    Layout.fillWidth: true
+                    textRole: "label"
+                    valueRole: "id"
+                    model: root.winetricksVerbs
+                }
+                MossSecondaryButton {
+                    text: "Run"
+                    enabled: !!(verbBox.currentValue)
+                    onClicked: {
+                        if (verbBox.currentValue)
+                            moss.runWinetricksVerb(root.gameId, verbBox.currentValue)
+                    }
                 }
             }
 
@@ -158,7 +201,13 @@ Dialog {
             dllOverrides: dllField.text,
             runnerId: runnerBox.currentValue || "",
             windowsVersion: winBox.currentValue || "",
-            favorite: favToggle.checked
+            favorite: favToggle.checked,
+            dxvkEnabled: dxvkToggle.checked,
+            vkd3dEnabled: vkd3dToggle.checked,
+            gamescopeEnabled: gamescopeToggle.checked,
+            gamescopeArgs: gamescopeArgsField.text,
+            mangohudEnabled: mangohudToggle.checked,
+            gamemodeEnabled: gamemodeToggle.checked
         })
     }
 
@@ -174,6 +223,8 @@ Dialog {
             })
         }
         root.runtimes = opts
+        root.winetricksVerbs = moss.listWinetricksVerbs(gid) || []
+        root.hostTools = moss.hostTools() || {}
 
         nameField.text = cfg.name || ""
         exeField.text = cfg.exe || ""
@@ -182,6 +233,12 @@ Dialog {
         envField.text = cfg.envVars || ""
         dllField.text = cfg.dllOverrides || ""
         favToggle.checked = !!cfg.favorite
+        dxvkToggle.checked = cfg.dxvkEnabled !== false
+        vkd3dToggle.checked = cfg.vkd3dEnabled !== false
+        gamescopeToggle.checked = !!cfg.gamescopeEnabled
+        gamescopeArgsField.text = cfg.gamescopeArgs || ""
+        mangohudToggle.checked = !!cfg.mangohudEnabled
+        gamemodeToggle.checked = !!cfg.gamemodeEnabled
 
         var wantRunner = cfg.runnerId || ""
         runnerBox.currentIndex = 0

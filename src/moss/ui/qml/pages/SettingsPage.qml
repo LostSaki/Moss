@@ -69,7 +69,7 @@ Item {
                     { id: "library", label: "Library", soon: true },
                     { id: "controllers", label: "Controllers", soon: true },
                     { id: "system", label: "System report", soon: true },
-                    { id: "runners", label: "Runners extra", soon: true },
+                    { id: "runners", label: "DXVK / extras" },
                     { id: "services", label: "Store services", soon: true }
                 ]
                 delegate: Button {
@@ -175,7 +175,7 @@ Item {
                             }
                             onActivated: {
                                 moss.setTheme(currentValue)
-                                if (currentValue === "soft_glass")
+                                if (currentValue === "soft_glass" || currentValue === "mist")
                                     glassOn.checked = true
                                 reload()
                             }
@@ -192,7 +192,7 @@ Item {
                         Text {
                             width: parent.width
                             wrapMode: Text.WordWrap
-                            text: "When on, panels use ~88–90% opacity. Game cards stay opaque."
+                            text: "When on, sidebar, menus, and dialogs use translucent panels (~72% opacity) over a tinted wash. Game cards stay opaque."
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontCaption
                         }
@@ -383,10 +383,24 @@ Item {
                     }
                 }
 
+                // DXVK / extras
+                MossSection {
+                    visible: root.section === "runners"
+                    title: "DXVK / VKD3D / overlays"
+                    description: "Per-game toggles live in Game → Configure (DXVK, VKD3D, Gamescope, MangoHud, GameMode, winetricks)."
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontSecondary
+                        text: "Open a game, choose Configure, then enable DXVK/VKD3D or launch wrappers. Winetricks verbs are available in the same dialog."
+                    }
+                }
+
                 // PLACEHOLDERS
                 MossSection {
                     visible: root.section === "library" || root.section === "controllers"
-                              || root.section === "system" || root.section === "runners"
+                              || root.section === "system"
                               || root.section === "services"
                     title: sectionTitle()
                     description: "Scaffold only — not implemented in this slice."
@@ -415,7 +429,6 @@ Item {
         case "library": return "Library"
         case "controllers": return "Controllers"
         case "system": return "System report"
-        case "runners": return "Runners"
         case "services": return "Store services"
         default: return "Coming soon"
         }
@@ -426,7 +439,6 @@ Item {
         case "library": return "Categories, tags, and hidden games will land here."
         case "controllers": return "Controller layouts and Steam Input hooks — planned."
         case "system": return "Hardware/OS report for troubleshooting — planned."
-        case "runners": return "Extra runners (DXVK builds, custom Wine) beyond Proton/Wine list — planned."
         case "services": return "GOG / Epic / store sync — planned. Not in this release."
         default: return "Coming soon."
         }
