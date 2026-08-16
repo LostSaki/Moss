@@ -11,6 +11,11 @@ from moss.ui.bridge import GameListModel, MossController
 
 
 def qml_dir() -> Path:
+    # PyInstaller one-file extracts datas under _MEIPASS/moss/ui/qml
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        bundled = Path(sys._MEIPASS) / "moss" / "ui" / "qml"  # type: ignore[attr-defined]
+        if bundled.is_dir():
+            return bundled
     return Path(__file__).resolve().parent / "qml"
 
 
