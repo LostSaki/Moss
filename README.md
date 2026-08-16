@@ -9,7 +9,7 @@ Not Lutris. Not Electron. Not a Steam replacement.
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-7FAF82?style=flat-square&labelColor=191A19)](https://www.python.org/)
 [![Qt Quick](https://img.shields.io/badge/UI-Qt%20Quick%20%2F%20QML-7C9BB8?style=flat-square&labelColor=191A19)](https://doc.qt.io/qt-6/qtquick-index.html)
 [![Linux](https://img.shields.io/badge/platform-Linux%20%2F%20SteamOS-B4B8B3?style=flat-square&labelColor=191A19)](#)
-[![Pre-release](https://img.shields.io/badge/status-v0.2.0--pre-D1A85A?style=flat-square&labelColor=191A19)](https://github.com/LostSaki/Moss/releases)
+[![Release](https://img.shields.io/badge/status-v0.2.0-7FAF82?style=flat-square&labelColor=191A19)](https://github.com/LostSaki/Moss/releases)
 
 ---
 
@@ -105,7 +105,7 @@ Recipes live in `src/moss/recipes.yaml`. Example: `VCRUNTIME140.dll` → `vcrun2
 
 ## Pre-release
 
-**v0.2.0-pre** is a pre-release: QML frontend and design system are new. Expect rough edges. Production Proton gameplay still targets Linux/SteamOS.
+**v0.2.0** ships themes, glass surfaces, onboarding, runners, and per-game launch tools (DXVK/VKD3D, Gamescope/MangoHud/GameMode, winetricks). Production Proton gameplay still targets Linux/SteamOS.
 
 ---
 
