@@ -32,7 +32,7 @@ Dialog {
     }
 
     background: Rectangle {
-        color: Theme.panelFill
+        color: Theme.dialogPanelFill
         border.width: 1
         border.color: Theme.border
         radius: Theme.radiusLarge
@@ -185,7 +185,7 @@ Dialog {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: "Translucent sidebar, menus, and dialogs. Game cards stay solid."
+                    text: "In-app frosted chrome on sidebar, menus, and dialogs. Not desktop acrylic. Game cards stay solid."
                     color: Theme.textMuted
                     font.pixelSize: Theme.fontCaption
                 }

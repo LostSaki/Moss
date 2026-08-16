@@ -67,9 +67,14 @@ Item {
                 spacing: Theme.space8
                 Item { width: 1; height: Theme.space4 }
                 MossButton {
-                    text: moss.busy ? "Running" : "Play"
+                    text: moss.busy || moss.running ? "Running" : "Play"
                     enabled: !moss.busy
                     onClicked: moss.play(moss.current.gameId)
+                }
+                MossSecondaryButton {
+                    text: "Stop"
+                    enabled: moss.busy || moss.running
+                    onClicked: moss.stop()
                 }
                 MossSecondaryButton {
                     text: "More"
@@ -85,6 +90,7 @@ Item {
                         }
                         MenuItem { text: "Configure…"; onTriggered: root.editConfig() }
                         MenuItem { text: "View Logs"; onTriggered: moss.loadLog(moss.current.gameId) }
+                        MenuItem { text: "Copy Debug Report"; onTriggered: moss.copyDebugReport(moss.current.gameId) }
                         MenuItem { text: "Open Prefix"; onTriggered: moss.openGamePrefix(moss.current.gameId) }
                         MenuItem {
                             text: "Backup Prefix"

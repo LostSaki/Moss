@@ -13,7 +13,7 @@ Dialog {
     onAccepted: moss.installSetup(setupPath.text, gameName.text)
 
     background: Rectangle {
-        color: Theme.panelFill
+        color: Theme.dialogPanelFill
         border.width: 1
         border.color: Theme.border
         radius: Theme.radiusLarge

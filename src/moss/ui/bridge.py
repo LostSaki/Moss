@@ -17,8 +17,9 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices
 
 from moss.components import list_common_verbs, run_verb
+from moss.debugreport import build_debug_report
 from moss.install import add_from_exe, add_from_folder, install_setup
-from moss.launch import launch_game
+from moss.launch import active_launch, apply_recipe_by_id, launch_game, stop_active_launch
 from moss.paths import data_dir, logs_dir
 from moss.prefix import apply_windows_version, backup_prefix, delete_prefix, open_prefix_path, prefix_info
 from moss.runtime import (
@@ -168,7 +169,7 @@ class GameListModel(QAbstractListModel):
 
 
 class LaunchWorker(QThread):
-    finished_ok = Signal(str, bool, str, bool, str)
+    finished_ok = Signal(str, bool, str, bool, str, str, bool, object, int)
 
     def __init__(self, game_id: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -177,16 +178,24 @@ class LaunchWorker(QThread):
     def run(self) -> None:
         game = get_game(self._game_id)
         if not game:
-            self.finished_ok.emit(self._game_id, False, "Unknown game", False, "")
+            self.finished_ok.emit(self._game_id, False, "Unknown game", False, "", "", False, None, 0)
             return
         result = launch_game(game)
         log = result.get("log") or ""
         tried = result.get("tried") or []
         if tried:
             log = "Tried: " + "; ".join(tried) + "\n\n" + log
-        anti = bool(result.get("anti_cheat"))
-        msg = str(result.get("message") or "")
-        self.finished_ok.emit(self._game_id, bool(result.get("ok")), log, anti, msg)
+        self.finished_ok.emit(
+            self._game_id,
+            bool(result.get("ok")),
+            log,
+            bool(result.get("anti_cheat")),
+            str(result.get("message") or ""),
+            str(result.get("recipe_id") or ""),
+            bool(result.get("can_fix")),
+            result.get("pid"),
+            int(result.get("durationSec") or 0),
+        )
 
 
 class UpdateWorker(QThread):
@@ -220,6 +229,8 @@ class MossController(QObject):
     runtimesChanged = Signal()
     onboardingChanged = Signal()
     antiCheatBlocked = Signal(str, str)
+    launchFailed = Signal(str, str, bool, str, str)
+    runningChanged = Signal()
 
     def __init__(self, games: GameListModel, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -227,6 +238,8 @@ class MossController(QObject):
         self._page = "library"
         self._current: dict = {}
         self._busy = False
+        self._running = False
+        self._last_launch: dict = {}
         self._worker: LaunchWorker | None = None
         self._upd: UpdateWorker | None = None
         self._ge: GeInstallWorker | None = None
@@ -260,6 +273,16 @@ class MossController(QObject):
     @Property(bool, notify=busyChanged)
     def busy(self) -> bool:
         return self._busy
+
+    @Property(bool, notify=runningChanged)
+    def running(self) -> bool:
+        return self._running or bool(active_launch().get("running"))
+
+    @Property("QVariant", notify=runningChanged)
+    def launchMeta(self) -> dict:
+        meta = dict(self._last_launch)
+        meta.update(active_launch())
+        return meta
 
     @Property(bool, notify=libraryChanged)
     def isEmpty(self) -> bool:
@@ -363,14 +386,37 @@ class MossController(QObject):
         if self._busy:
             return
         self._busy = True
+        self._running = True
         self.busyChanged.emit()
+        self.runningChanged.emit()
         self._worker = LaunchWorker(game_id, self)
         self._worker.finished_ok.connect(self._play_done)
         self._worker.start()
 
-    def _play_done(self, game_id: str, ok: bool, log: str, anti_cheat: bool = False, message: str = "") -> None:
+    def _play_done(
+        self,
+        game_id: str,
+        ok: bool,
+        log: str,
+        anti_cheat: bool = False,
+        message: str = "",
+        recipe_id: str = "",
+        can_fix: bool = False,
+        pid=None,
+        duration: int = 0,
+    ) -> None:
         self._busy = False
+        self._running = False
         self.busyChanged.emit()
+        self._last_launch = {
+            "gameId": game_id,
+            "ok": ok,
+            "pid": pid,
+            "durationSec": duration,
+            "recipeId": recipe_id,
+            "message": message,
+        }
+        self.runningChanged.emit()
         self._games.reload()
         self.libraryChanged.emit()
         self.openGame(game_id)
@@ -384,7 +430,47 @@ class MossController(QObject):
             return
         if not ok:
             self.logReady.emit(log)
-            self.error.emit("Launch finished with errors")
+            title = "Launch failed"
+            detail = message or "Moss could not identify a safe automatic fix."
+            if can_fix and recipe_id:
+                detail = f"{detail}\n\nRecommended fix available ({recipe_id})."
+            self.launchFailed.emit(title, detail, can_fix, recipe_id, game_id)
+
+    @Slot()
+    def stop(self) -> None:
+        result = stop_active_launch(force=False)
+        self._running = False
+        self.runningChanged.emit()
+        self.toast.emit(str(result.get("message") or "Stopped"))
+
+    @Slot(str, str)
+    def applyRecommendedFix(self, game_id: str, recipe_id: str) -> None:
+        g = get_game(game_id)
+        if not g:
+            self.toast.emit("Unknown game")
+            return
+        result = apply_recipe_by_id(g, recipe_id)
+        self.toast.emit(str(result.get("message") or ("Done" if result.get("ok") else "Fix failed")))
+        if result.get("ok"):
+            self._games.reload()
+            if self._current.get("gameId") == game_id:
+                self.openGame(game_id)
+
+    @Slot(str, result=str)
+    def debugReport(self, game_id: str = "") -> str:
+        return build_debug_report(game_id or "")
+
+    @Slot(str)
+    def copyDebugReport(self, game_id: str = "") -> None:
+        from PySide6.QtGui import QGuiApplication
+
+        text = build_debug_report(game_id or "")
+        clip = QGuiApplication.clipboard()
+        if clip:
+            clip.setText(text)
+            self.toast.emit("Debug report copied")
+        else:
+            self.toast.emit("Clipboard unavailable")
 
     @Slot(str)
     def addFolder(self, path: str) -> None:
@@ -597,6 +683,11 @@ class MossController(QObject):
             "gamescopeArgs": g.gamescope_args or "",
             "mangohudEnabled": bool(g.mangohud_enabled),
             "gamemodeEnabled": bool(g.gamemode_enabled),
+            "esyncEnabled": bool(getattr(g, "esync_enabled", True)),
+            "fsyncEnabled": bool(getattr(g, "fsync_enabled", True)),
+            "launchProfiles": list(getattr(g, "launch_profiles", None) or []),
+            "activeProfileId": str(getattr(g, "active_profile_id", "") or ""),
+            "syncSupported": __import__("os").name == "posix",
         }
 
     @Slot("QVariant")
@@ -651,6 +742,28 @@ class MossController(QObject):
             g.mangohud_enabled = bool(data["mangohudEnabled"])
         if "gamemodeEnabled" in data:
             g.gamemode_enabled = bool(data["gamemodeEnabled"])
+        if "esyncEnabled" in data:
+            g.esync_enabled = bool(data["esyncEnabled"])
+        if "fsyncEnabled" in data:
+            g.fsync_enabled = bool(data["fsyncEnabled"])
+        if "activeProfileId" in data:
+            g.active_profile_id = str(data.get("activeProfileId") or "").strip()
+        if "launchProfiles" in data and isinstance(data.get("launchProfiles"), list):
+            cleaned = []
+            for p in data["launchProfiles"]:
+                if not isinstance(p, dict):
+                    continue
+                pid = str(p.get("id") or "").strip() or f"profile-{len(cleaned)+1}"
+                cleaned.append(
+                    {
+                        "id": pid,
+                        "name": str(p.get("name") or pid),
+                        "launch_args": str(p.get("launch_args") or p.get("launchArgs") or ""),
+                        "runner_id": str(p.get("runner_id") or p.get("runnerId") or ""),
+                        "env_vars": dict(p.get("env_vars") or p.get("envVars") or {}),
+                    }
+                )
+            g.launch_profiles = cleaned
         upsert(g)
 
         # Apply winecfg when Windows version changes

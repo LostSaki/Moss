@@ -34,6 +34,10 @@ class Game:
     gamescope_args: str = ""
     mangohud_enabled: bool = False
     gamemode_enabled: bool = False
+    esync_enabled: bool = True
+    fsync_enabled: bool = True
+    launch_profiles: list[dict] = field(default_factory=list)
+    active_profile_id: str = ""
 
     def exe_path(self) -> Path:
         return Path(self.exe)
@@ -92,12 +96,24 @@ def _game_from_dict(item: dict[str, Any]) -> Game:
     data.setdefault("gamescope_args", "")
     data.setdefault("mangohud_enabled", False)
     data.setdefault("gamemode_enabled", False)
+    data.setdefault("esync_enabled", True)
+    data.setdefault("fsync_enabled", True)
+    data.setdefault("launch_profiles", [])
+    data.setdefault("active_profile_id", "")
     data["dxvk_enabled"] = bool(data.get("dxvk_enabled", True))
     data["vkd3d_enabled"] = bool(data.get("vkd3d_enabled", True))
     data["gamescope_enabled"] = bool(data.get("gamescope_enabled", False))
     data["mangohud_enabled"] = bool(data.get("mangohud_enabled", False))
     data["gamemode_enabled"] = bool(data.get("gamemode_enabled", False))
+    data["esync_enabled"] = bool(data.get("esync_enabled", True))
+    data["fsync_enabled"] = bool(data.get("fsync_enabled", True))
     data["gamescope_args"] = str(data.get("gamescope_args") or "")
+    data["active_profile_id"] = str(data.get("active_profile_id") or "")
+    profiles = data.get("launch_profiles") or []
+    if isinstance(profiles, list):
+        data["launch_profiles"] = [p for p in profiles if isinstance(p, dict)]
+    else:
+        data["launch_profiles"] = []
     return Game(**data)
 
 

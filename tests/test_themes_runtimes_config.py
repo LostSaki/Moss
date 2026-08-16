@@ -26,7 +26,7 @@ def test_theme_tokens_and_list() -> None:
     labels = {t["id"]: t["label"] for t in list_themes()}
     assert labels["soft_glass"] == "Soft Glass"
     assert labels["ember"] == "Ember"
-    assert float(theme_tokens("moss_dark")["glassOpacity"]) == 0.72
+    assert float(theme_tokens("moss_dark")["glassOpacity"]) == 0.55
 
 
 def test_game_new_fields_roundtrip(tmp_path: Path, monkeypatch) -> None:

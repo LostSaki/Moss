@@ -33,7 +33,8 @@ _LAYOUT: dict[str, Any] = {
     "searchWidth": 260,
     "durationFast": 140,
     "durationNormal": 160,
-    "glassOpacity": 0.72,
+    "glassOpacity": 0.55,
+    "dialogGlassOpacity": 0.85,
 }
 
 # Themes that auto-enable glass when selected
@@ -116,9 +117,8 @@ SOFT_GLASS: dict[str, Any] = {
     "warning": "#D4B06A",
     "error": "#D07A7A",
     "info": "#8AA8C0",
-    "glassOpacity": 0.78,
+    "glassOpacity": 0.52,
 }
-
 MOSS_LIGHT: dict[str, Any] = {
     **_LAYOUT,
     "background": "#F4F5F2",
@@ -143,9 +143,8 @@ MOSS_LIGHT: dict[str, Any] = {
     "warning": "#B8860B",
     "error": "#B54A4A",
     "info": "#5A7A96",
-    "glassOpacity": 0.78,
+    "glassOpacity": 0.52,
 }
-
 DEEP_FOREST: dict[str, Any] = {
     **_LAYOUT,
     "background": "#0A0E0A",
@@ -222,7 +221,7 @@ MIST: dict[str, Any] = {
     "warning": "#D1B06A",
     "error": "#C97A7A",
     "info": "#8AA8B8",
-    "glassOpacity": 0.7,
+    "glassOpacity": 0.5,
 }
 
 THEMES: dict[str, dict[str, Any]] = {

@@ -14,7 +14,7 @@ Dialog {
     width: 420
 
     background: Rectangle {
-        color: Theme.panelFill
+        color: Theme.dialogPanelFill
         border.width: 1
         border.color: Theme.border
         radius: Theme.radiusLarge

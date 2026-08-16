@@ -17,12 +17,25 @@ Item {
         color: Theme.panelFill
     }
 
+    // Top edge highlight when glass is on — reads as a frosted panel
+    Rectangle {
+        visible: Theme.glassEnabled
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.35)
+        z: 3
+    }
+
     Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 1
-        color: Theme.divider
+        color: Theme.glassEnabled
+              ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.25)
+              : Theme.divider
         z: 1
     }
 
