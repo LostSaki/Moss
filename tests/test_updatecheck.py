@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from moss.updatecheck import _newer, check_for_update
 
 
@@ -12,3 +14,37 @@ def test_check_no_crash() -> None:
     info = check_for_update("0.1.0")
     assert info.url
     assert isinstance(info.available, bool)
+    assert info.current == "0.1.0"
+    assert info.message
+
+
+def test_up_to_date_message(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "moss.updatecheck._get",
+        lambda url: {"tag_name": "v0.2.0", "html_url": "https://example.com/r"},
+    )
+    info = check_for_update("0.2.0")
+    assert info.available is False
+    assert info.ok is True
+    assert "up to date" in info.message.lower()
+    assert "v0.2.0" in info.message
+
+
+def test_update_available_message(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "moss.updatecheck._get",
+        lambda url: {"tag_name": "v0.3.0", "html_url": "https://example.com/r"},
+    )
+    info = check_for_update("0.2.0")
+    assert info.available is True
+    assert "Update available" in info.message
+    assert "v0.3.0" in info.message
+    assert "v0.2.0" in info.message
+
+
+def test_network_failure_message(monkeypatch) -> None:
+    monkeypatch.setattr("moss.updatecheck._get", lambda url: None)
+    info = check_for_update("0.2.0")
+    assert info.available is False
+    assert info.ok is False
+    assert "Couldn't reach GitHub" in info.message

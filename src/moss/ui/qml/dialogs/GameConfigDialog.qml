@@ -19,6 +19,13 @@ Dialog {
     property var profileModel: []
     property bool syncSupported: false
 
+    enter: Transition {
+        ParallelAnimation {
+            NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.durationNormal; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "scale"; from: 0.98; to: 1; duration: Theme.durationNormal; easing.type: Easing.OutCubic }
+        }
+    }
+
     background: Rectangle {
         color: Theme.dialogPanelFill
         border.width: 1

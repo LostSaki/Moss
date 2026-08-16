@@ -35,6 +35,9 @@ ApplicationWindow {
         function onToast(msg) {
             toastLabel.text = msg
             toast.visible = true
+            toast.opacity = 0
+            toast.anchors.bottomMargin = Theme.space12
+            toastIn.start()
             toastTimer.restart()
         }
         function onThemeChanged() { Theme.syncFromController(moss) }
@@ -126,6 +129,7 @@ ApplicationWindow {
             }
 
             Item {
+                id: contentHost
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -136,31 +140,51 @@ ApplicationWindow {
                     opacity: 1.0
                 }
 
-                LibraryPage {
+                Item {
+                    id: pageLayer
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
-                    visible: moss.page === "library"
-                    z: 1
-                }
-                GamePage {
-                    anchors.fill: parent
-                    anchors.margins: Theme.contentMargin
-                    visible: moss.page === "game"
-                    z: 1
-                    onEditConfig: gameConfig.openFor(moss.current.gameId)
-                }
-                SettingsPage {
-                    anchors.fill: parent
-                    anchors.margins: Theme.contentMargin
-                    visible: moss.page === "settings"
-                    z: 1
-                }
-                LogsPage {
-                    anchors.fill: parent
-                    anchors.margins: Theme.contentMargin
-                    visible: moss.page === "logs"
-                    logText: logBuffer
-                    z: 1
+                    opacity: 1
+
+                    Connections {
+                        target: moss
+                        function onPageChanged() {
+                            pageLayer.opacity = 0
+                            pageFadeIn.start()
+                        }
+                    }
+
+                    NumberAnimation {
+                        id: pageFadeIn
+                        target: pageLayer
+                        property: "opacity"
+                        to: 1
+                        duration: Theme.durationNormal
+                        easing.type: Easing.OutCubic
+                    }
+
+                    LibraryPage {
+                        anchors.fill: parent
+                        visible: moss.page === "library"
+                        z: 1
+                    }
+                    GamePage {
+                        anchors.fill: parent
+                        visible: moss.page === "game"
+                        z: 1
+                        onEditConfig: gameConfig.openFor(moss.current.gameId)
+                    }
+                    SettingsPage {
+                        anchors.fill: parent
+                        visible: moss.page === "settings"
+                        z: 1
+                    }
+                    LogsPage {
+                        anchors.fill: parent
+                        visible: moss.page === "logs"
+                        logText: logBuffer
+                        z: 1
+                    }
                 }
             }
         }
@@ -255,9 +279,11 @@ ApplicationWindow {
     Rectangle {
         id: toast
         visible: false
+        opacity: 0
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Theme.space24
+        anchors.bottomMargin: Theme.space24
         radius: Theme.radiusMedium
         color: Theme.dialogPanelFill
         border.width: 1
@@ -271,10 +297,39 @@ ApplicationWindow {
             color: Theme.textPrimary
             font.pixelSize: Theme.fontSecondary
         }
+
+        ParallelAnimation {
+            id: toastIn
+            NumberAnimation {
+                target: toast
+                property: "opacity"
+                to: 1
+                duration: Theme.durationFast
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: toast
+                property: "anchors.bottomMargin"
+                to: Theme.space24
+                duration: Theme.durationFast
+                easing.type: Easing.OutCubic
+            }
+        }
+        ParallelAnimation {
+            id: toastOut
+            NumberAnimation {
+                target: toast
+                property: "opacity"
+                to: 0
+                duration: Theme.durationFast
+                easing.type: Easing.InCubic
+            }
+            onFinished: toast.visible = false
+        }
     }
     Timer {
         id: toastTimer
         interval: 2200
-        onTriggered: toast.visible = false
+        onTriggered: toastOut.start()
     }
 }

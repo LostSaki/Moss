@@ -12,6 +12,18 @@ Item {
 
     width: 148
     height: 236
+    opacity: 0
+
+    Component.onCompleted: enterFade.start()
+
+    NumberAnimation {
+        id: enterFade
+        target: root
+        property: "opacity"
+        to: 1
+        duration: Theme.durationNormal
+        easing.type: Easing.OutCubic
+    }
 
     Column {
         anchors.fill: parent
