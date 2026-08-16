@@ -4,6 +4,7 @@ import ".."
 
 Item {
     id: root
+    signal editConfig()
 
     MossSecondaryButton {
         id: back
@@ -77,6 +78,7 @@ Item {
                     onClicked: moreMenu.open()
                     Menu {
                         id: moreMenu
+                        MenuItem { text: "Configure…"; onTriggered: root.editConfig() }
                         MenuItem { text: "View Logs"; onTriggered: moss.loadLog(moss.current.gameId) }
                         MenuItem { text: "Open Prefix"; onTriggered: moss.openPrefix(moss.current.prefix) }
                         MenuItem {
@@ -103,6 +105,9 @@ Item {
             model: [
                 { k: "Status", v: moss.current.status || "" },
                 { k: "Runtime", v: moss.current.runtime || "" },
+                { k: "Executable", v: moss.current.exe || "" },
+                { k: "Working dir", v: moss.current.workingDir || "—" },
+                { k: "Launch args", v: moss.current.launchArgs || "—" },
                 { k: "Components", v: moss.current.verbs || "" },
                 { k: "Last played", v: moss.current.lastPlayed || "—" }
             ]
@@ -132,6 +137,12 @@ Item {
             }
         }
         Rectangle { width: parent.width; height: 1; color: Theme.divider }
+
+        Item { width: 1; height: Theme.space16 }
+        MossSecondaryButton {
+            text: "Advanced configuration"
+            onClicked: root.editConfig()
+        }
     }
 
     ConfirmDialog {

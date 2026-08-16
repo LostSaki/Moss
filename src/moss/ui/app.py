@@ -15,6 +15,10 @@ def qml_dir() -> Path:
 
 
 def run_app() -> int:
+    import os
+
+    # Native Windows style blocks custom backgrounds/indicators; Fusion matches design tokens.
+    os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Fusion")
     app = QGuiApplication.instance() or QGuiApplication(sys.argv)
     app.setApplicationName("Moss")
     games = GameListModel()

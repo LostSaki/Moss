@@ -12,7 +12,7 @@ Dialog {
     width: 400
 
     background: Rectangle {
-        color: Theme.backgroundElevated
+        color: Theme.panelFill
         border.width: 1
         border.color: Theme.border
         radius: Theme.radiusLarge

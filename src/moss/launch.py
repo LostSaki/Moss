@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,10 +15,28 @@ from moss.store import Game, upsert
 MAX_RETRIES = 3
 
 
-def _command(runtime: Runtime, exe: Path) -> list[str]:
+def _parse_args(raw: str) -> list[str]:
+    text = (raw or "").strip()
+    if not text:
+        return []
+    try:
+        return shlex.split(text, posix=True)
+    except ValueError:
+        return text.split()
+
+
+def _command(runtime: Runtime, exe: Path, extra_args: list[str]) -> list[str]:
     if runtime.kind == "proton":
-        return [str(runtime.binary), "run", str(exe)]
-    return [str(runtime.binary), str(exe)]
+        return [str(runtime.binary), "run", str(exe), *extra_args]
+    return [str(runtime.binary), str(exe), *extra_args]
+
+
+def _workdir(game: Game) -> Path:
+    if game.working_dir:
+        p = Path(game.working_dir)
+        if p.is_dir():
+            return p
+    return Path(game.exe).parent
 
 
 def run_once(game: Game, runtime: Runtime) -> tuple[int, str]:
@@ -25,11 +44,15 @@ def run_once(game: Game, runtime: Runtime) -> tuple[int, str]:
     log_path = logs_dir() / f"{game.id}.log"
     env = wine_env(runtime, Path(game.prefix))
     env["WINEDEBUG"] = "+err,+fixme"
+    for key, value in (game.env_vars or {}).items():
+        if key:
+            env[str(key)] = str(value)
+    args = _parse_args(game.launch_args)
     try:
         proc = subprocess.run(
-            _command(runtime, Path(game.exe)),
+            _command(runtime, Path(game.exe), args),
             env=env,
-            cwd=str(Path(game.exe).parent),
+            cwd=str(_workdir(game)),
             capture_output=True,
             text=True,
             timeout=None,

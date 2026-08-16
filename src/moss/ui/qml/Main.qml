@@ -16,6 +16,14 @@ ApplicationWindow {
     property string bannerUrl: ""
     property string logBuffer: ""
 
+    Component.onCompleted: {
+        Theme.syncFromController(moss)
+        if (!moss.onboardingComplete) {
+            onboarding.prepare()
+            onboarding.open()
+        }
+    }
+
     Connections {
         target: moss
         function onUpdateAvailable(message, url) {
@@ -27,6 +35,14 @@ ApplicationWindow {
             toastLabel.text = msg
             toast.visible = true
             toastTimer.restart()
+        }
+        function onThemeChanged() { Theme.syncFromController(moss) }
+        function onGlassChanged() { Theme.setGlass(moss.glassEnabled) }
+        function onOnboardingChanged() {
+            if (!moss.onboardingComplete && !onboarding.visible) {
+                onboarding.prepare()
+                onboarding.open()
+            }
         }
     }
 
@@ -81,6 +97,7 @@ ApplicationWindow {
                     anchors.fill: parent
                     anchors.margins: Theme.contentMargin
                     visible: moss.page === "game"
+                    onEditConfig: gameConfig.openFor(moss.current.gameId)
                 }
                 SettingsPage {
                     anchors.fill: parent
@@ -109,6 +126,8 @@ ApplicationWindow {
         onAccepted: moss.addExe(moss.localPath(selectedFile))
     }
     InstallDialog { id: installDlg }
+    OnboardingDialog { id: onboarding }
+    GameConfigDialog { id: gameConfig }
 
     Rectangle {
         id: toast
@@ -117,7 +136,7 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         anchors.margins: Theme.space24
         radius: Theme.radiusMedium
-        color: Theme.surfaceRaised
+        color: Theme.panelFill
         border.width: 1
         border.color: Theme.border
         width: toastLabel.implicitWidth + 24

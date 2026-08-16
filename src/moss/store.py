@@ -20,6 +20,9 @@ class Game:
     steam_shortcut_id: int | None = None
     favorite: bool = False
     last_played: str = ""
+    working_dir: str = ""
+    launch_args: str = ""
+    env_vars: dict[str, str] = field(default_factory=dict)
 
     def exe_path(self) -> Path:
         return Path(self.exe)
@@ -33,7 +36,23 @@ class Game:
 
 def _game_from_dict(item: dict[str, Any]) -> Game:
     allowed = {f.name for f in fields(Game)}
-    return Game(**{k: v for k, v in item.items() if k in allowed})
+    data = {k: v for k, v in item.items() if k in allowed}
+    env = data.get("env_vars")
+    if env is None:
+        data["env_vars"] = {}
+    elif isinstance(env, list):
+        # tolerate [["KEY","VAL"], ...] or ["KEY=VAL", ...]
+        parsed: dict[str, str] = {}
+        for entry in env:
+            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                parsed[str(entry[0])] = str(entry[1])
+            elif isinstance(entry, str) and "=" in entry:
+                k, _, v = entry.partition("=")
+                parsed[k.strip()] = v.strip()
+        data["env_vars"] = parsed
+    elif not isinstance(env, dict):
+        data["env_vars"] = {}
+    return Game(**data)
 
 
 def load_library() -> dict[str, Game]:
@@ -81,8 +100,13 @@ def default_config() -> dict[str, Any]:
         "steamgriddb_api_key": "",
         "proton_path": "",
         "wine_path": "",
+        "preferred_runtime": "auto",  # auto | proton | wine
+        "default_runtime_id": "",
         "check_updates": True,
         "create_steam_shortcuts": True,
+        "theme": "moss_dark",
+        "glass_enabled": False,
+        "onboarding_complete": False,
     }
 
 

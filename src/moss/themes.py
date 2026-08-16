@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+from typing import Any
+
+# Shared layout/motion tokens (not theme-colored)
+_LAYOUT: dict[str, Any] = {
+    "radiusSmall": 4,
+    "radiusMedium": 6,
+    "radiusLarge": 8,
+    "radiusHero": 10,
+    "space4": 4,
+    "space8": 8,
+    "space12": 12,
+    "space16": 16,
+    "space20": 20,
+    "space24": 24,
+    "space32": 32,
+    "space40": 40,
+    "space48": 48,
+    "space64": 64,
+    "fontDisplay": 32,
+    "fontPageTitle": 28,
+    "fontSection": 17,
+    "fontGameTitle": 18,
+    "fontBody": 14,
+    "fontSecondary": 13,
+    "fontCaption": 12,
+    "fontMicro": 11,
+    "sidebarWidth": 240,
+    "contentMargin": 28,
+    "navItemHeight": 34,
+    "playHeight": 40,
+    "searchWidth": 260,
+    "durationFast": 140,
+    "durationNormal": 160,
+    "glassOpacity": 0.88,
+}
+
+
+MOSS_DARK: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#111211",
+    "backgroundElevated": "#151615",
+    "backgroundDeep": "#0C0D0C",
+    "surface": "#191A19",
+    "surfaceRaised": "#1E201E",
+    "surfaceHover": "#242624",
+    "surfaceSelected": "#292C29",
+    "border": "#303330",
+    "borderStrong": "#3B3F3B",
+    "divider": "#292C29",
+    "textPrimary": "#F1F2EF",
+    "textSecondary": "#B4B8B3",
+    "textMuted": "#777C77",
+    "textDisabled": "#515651",
+    "accent": "#7FAF82",
+    "accentHover": "#91BE94",
+    "accentPressed": "#6E9B72",
+    "accentSurface": "#1D2A1F",
+    "success": "#7FAF82",
+    "warning": "#D1A85A",
+    "error": "#C96B6B",
+    "info": "#7C9BB8",
+}
+
+HIGH_CONTRAST: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#000000",
+    "backgroundElevated": "#0A0A0A",
+    "backgroundDeep": "#000000",
+    "surface": "#121212",
+    "surfaceRaised": "#1A1A1A",
+    "surfaceHover": "#242424",
+    "surfaceSelected": "#2E2E2E",
+    "border": "#FFFFFF",
+    "borderStrong": "#FFFFFF",
+    "divider": "#AAAAAA",
+    "textPrimary": "#FFFFFF",
+    "textSecondary": "#F0F0F0",
+    "textMuted": "#CCCCCC",
+    "textDisabled": "#888888",
+    "accent": "#A8D4AB",
+    "accentHover": "#BFE0C1",
+    "accentPressed": "#8FBF93",
+    "accentSurface": "#143018",
+    "success": "#A8D4AB",
+    "warning": "#F0C060",
+    "error": "#FF8A8A",
+    "info": "#9EC0E0",
+}
+
+SOFT_GLASS: dict[str, Any] = {
+    **_LAYOUT,
+    "background": "#0E100E",
+    "backgroundElevated": "#141814",
+    "backgroundDeep": "#090B09",
+    "surface": "#1A1E1A",
+    "surfaceRaised": "#222722",
+    "surfaceHover": "#2A302A",
+    "surfaceSelected": "#323832",
+    "border": "#3A423A",
+    "borderStrong": "#4A544A",
+    "divider": "#2C322C",
+    "textPrimary": "#F3F5F2",
+    "textSecondary": "#C0C6BF",
+    "textMuted": "#8A9088",
+    "textDisabled": "#5A6058",
+    "accent": "#8BB58E",
+    "accentHover": "#9DC4A0",
+    "accentPressed": "#759E78",
+    "accentSurface": "#1A2C1D",
+    "success": "#8BB58E",
+    "warning": "#D4B06A",
+    "error": "#D07A7A",
+    "info": "#8AA8C0",
+    "glassOpacity": 0.9,
+}
+
+THEMES: dict[str, dict[str, Any]] = {
+    "moss_dark": MOSS_DARK,
+    "high_contrast": HIGH_CONTRAST,
+    "soft_glass": SOFT_GLASS,
+}
+
+THEME_LABELS: dict[str, str] = {
+    "moss_dark": "Moss Dark",
+    "high_contrast": "High Contrast",
+    "soft_glass": "Soft Glass",
+}
+
+
+def theme_tokens(name: str) -> dict[str, Any]:
+    return dict(THEMES.get(name) or MOSS_DARK)
+
+
+def list_themes() -> list[dict[str, str]]:
+    return [{"id": k, "label": THEME_LABELS[k]} for k in THEMES]
