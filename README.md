@@ -72,12 +72,26 @@ On Windows, `moss` may not be on PATH — use `python -m moss …`.
 
 You can open the **UI shell** and run unit tests on Windows. Real Proton/Wine launches need Linux or SteamOS.
 
-Preview `.exe` (UI only):
+Prebuilt binaries (from GitHub Releases):
+
+- `Moss-windows-x86_64.exe` — Windows UI preview
+- `Moss-linux-x86_64` — Linux / Steam Deck x86_64 (chmod +x, then run)
+
+Local build:
 
 ```powershell
-pip install pyinstaller
+pip install ".[ui]" pyinstaller
 pyinstaller --noconfirm moss.spec
 ```
+
+```bash
+# Linux
+pip install ".[ui]" pyinstaller
+pyinstaller --noconfirm moss.spec
+chmod +x dist/Moss
+```
+
+CI builds both platforms via **Actions → Build binaries** (uploads to the release tag).
 
 ---
 
