@@ -28,7 +28,7 @@ def test_expanded_themes() -> None:
     assert "mist" in THEMES
     assert theme_tokens("moss_light")["background"] == "#F4F5F2"
     assert theme_tokens("ember")["accent"] == "#D1A85A"
-    assert float(theme_tokens("moss_dark")["glassOpacity"]) == 0.72
+    assert float(theme_tokens("moss_dark")["glassOpacity"]) == 0.55
     assert AUTO_GLASS_THEMES == frozenset({"soft_glass", "mist"})
     ids = {t["id"] for t in list_themes()}
     assert ids == set(THEMES)

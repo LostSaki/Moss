@@ -68,7 +68,7 @@ Item {
                     { id: "advanced", label: "Advanced" },
                     { id: "library", label: "Library", soon: true },
                     { id: "controllers", label: "Controllers", soon: true },
-                    { id: "system", label: "System report", soon: true },
+                    { id: "system", label: "System report" },
                     { id: "runners", label: "DXVK / extras" },
                     { id: "services", label: "Store services", soon: true }
                 ]
@@ -155,7 +155,7 @@ Item {
                 MossSection {
                     visible: root.section === "appearance"
                     title: "Appearance"
-                    description: "Theme tokens and selective glass surfaces (sidebar, menus, dialogs)."
+                    description: "Theme tokens and selective in-app frosted chrome."
                     Column {
                         width: parent.width
                         spacing: Theme.space16
@@ -177,6 +177,7 @@ Item {
                                 moss.setTheme(currentValue)
                                 if (currentValue === "soft_glass" || currentValue === "mist")
                                     glassOn.checked = true
+                                Theme.syncFromController(moss)
                                 reload()
                             }
                         }
@@ -192,7 +193,9 @@ Item {
                         Text {
                             width: parent.width
                             wrapMode: Text.WordWrap
-                            text: "When on, sidebar, menus, and dialogs use translucent panels (~72% opacity) over a tinted wash. Game cards stay opaque."
+                            text: glassOn.checked
+                                  ? "On — in-app frosted chrome on sidebar, menus, and dialogs (~55% panel over a tinted wash). Not desktop acrylic. Game cards stay opaque."
+                                  : "Off — solid panels. Turn on for frosted chrome (in-app wash behind the sidebar; not see-through to the desktop)."
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontCaption
                         }
@@ -397,10 +400,31 @@ Item {
                     }
                 }
 
+                // System report
+                MossSection {
+                    visible: root.section === "system"
+                    title: "System report"
+                    description: "Copy a redacted debug report for troubleshooting (no API keys)."
+                    Column {
+                        width: parent.width
+                        spacing: Theme.space12
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontSecondary
+                            text: "Includes Moss version, OS, runners, host tools, and optional game/log tail."
+                        }
+                        MossButton {
+                            text: "Copy debug report"
+                            onClicked: moss.copyDebugReport(moss.current.gameId || "")
+                        }
+                    }
+                }
+
                 // PLACEHOLDERS
                 MossSection {
                     visible: root.section === "library" || root.section === "controllers"
-                              || root.section === "system"
                               || root.section === "services"
                     title: sectionTitle()
                     description: "Scaffold only — not implemented in this slice."
@@ -428,7 +452,6 @@ Item {
         switch (root.section) {
         case "library": return "Library"
         case "controllers": return "Controllers"
-        case "system": return "System report"
         case "services": return "Store services"
         default: return "Coming soon"
         }
@@ -438,7 +461,6 @@ Item {
         switch (root.section) {
         case "library": return "Categories, tags, and hidden games will land here."
         case "controllers": return "Controller layouts and Steam Input hooks — planned."
-        case "system": return "Hardware/OS report for troubleshooting — planned."
         case "services": return "GOG / Epic / store sync — planned. Not in this release."
         default: return "Coming soon."
         }

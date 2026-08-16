@@ -38,14 +38,16 @@ QtObject {
     property color error: "#C96B6B"
     property color info: "#7C9BB8"
 
-    // Glass
+    // Glass — in-app frosted chrome (not desktop acrylic)
     property bool glassEnabled: false
-    property real glassOpacity: 0.72
+    property real glassOpacity: 0.55
+    property real dialogGlassOpacity: 0.85
     property color panel: backgroundElevated
     property real panelOpacity: 1.0
     property color panelFill: backgroundElevated
-    // Contrasting underlay so translucent panels read when glass is on
+    property color dialogPanelFill: backgroundElevated
     property color glassWash: backgroundDeep
+    property color glassWashAccent: accentSurface
     property color windowFill: background
 
     // Radius (4–10 only)
@@ -126,6 +128,7 @@ QtObject {
         error = _c(map, "error", error)
         info = _c(map, "info", info)
         glassOpacity = Number(_c(map, "glassOpacity", glassOpacity))
+        dialogGlassOpacity = Number(_c(map, "dialogGlassOpacity", dialogGlassOpacity))
         radiusSmall = Number(_c(map, "radiusSmall", radiusSmall))
         radiusMedium = Number(_c(map, "radiusMedium", radiusMedium))
         radiusLarge = Number(_c(map, "radiusLarge", radiusLarge))
@@ -144,14 +147,20 @@ QtObject {
         panelFill = glassEnabled
             ? Qt.rgba(backgroundElevated.r, backgroundElevated.g, backgroundElevated.b, glassOpacity)
             : backgroundElevated
-        // Soft botanical wash behind chrome when glass is on
+        dialogPanelFill = glassEnabled
+            ? Qt.rgba(backgroundElevated.r, backgroundElevated.g, backgroundElevated.b, dialogGlassOpacity)
+            : backgroundElevated
+        // Strong botanical wash so translucent sidebar/menus have contrast
         glassWash = glassEnabled
             ? Qt.rgba(
-                (backgroundDeep.r * 0.7 + accent.r * 0.3),
-                (backgroundDeep.g * 0.7 + accent.g * 0.3),
-                (backgroundDeep.b * 0.7 + accent.b * 0.3),
+                backgroundDeep.r * 0.45 + accent.r * 0.55,
+                backgroundDeep.g * 0.45 + accent.g * 0.55,
+                backgroundDeep.b * 0.45 + accent.b * 0.55,
                 1.0)
             : backgroundDeep
+        glassWashAccent = glassEnabled
+            ? Qt.rgba(accent.r, accent.g, accent.b, 0.22)
+            : accentSurface
         windowFill = glassEnabled ? glassWash : background
         sidebar = glassEnabled ? panelFill : backgroundElevated
         surfaceElevated = surfaceRaised

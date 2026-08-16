@@ -16,9 +16,11 @@ Dialog {
     property var runtimes: []
     property var winetricksVerbs: []
     property var hostTools: ({ gamescope: false, mangohud: false, gamemode: false })
+    property var profileModel: []
+    property bool syncSupported: false
 
     background: Rectangle {
-        color: Theme.panelFill
+        color: Theme.dialogPanelFill
         border.width: 1
         border.color: Theme.border
         radius: Theme.radiusLarge
@@ -135,6 +137,40 @@ Dialog {
                 id: gamemodeToggle
                 text: "GameMode" + (root.hostTools.gamemode ? "" : " (not found)")
             }
+            MossToggle {
+                id: esyncToggle
+                text: root.syncSupported ? "Esync" : "Esync (Linux only)"
+                enabled: root.syncSupported
+            }
+            MossToggle {
+                id: fsyncToggle
+                text: root.syncSupported ? "Fsync" : "Fsync (Linux only)"
+                enabled: root.syncSupported
+            }
+            Text {
+                visible: !root.syncSupported
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: "Esync/Fsync apply on Linux/SteamOS hosts only."
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontCaption
+            }
+
+            Text { text: "Launch profile"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+            ComboBox {
+                id: profileBox
+                Layout.fillWidth: true
+                textRole: "name"
+                valueRole: "id"
+                model: root.profileModel
+            }
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: "Profiles override args/runner/env for this game. Add profiles as JSON later or use Default."
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontCaption
+            }
 
             Text { text: "Environment (KEY=value per line)"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
             ScrollView {
@@ -207,7 +243,10 @@ Dialog {
             gamescopeEnabled: gamescopeToggle.checked,
             gamescopeArgs: gamescopeArgsField.text,
             mangohudEnabled: mangohudToggle.checked,
-            gamemodeEnabled: gamemodeToggle.checked
+            gamemodeEnabled: gamemodeToggle.checked,
+            esyncEnabled: esyncToggle.checked,
+            fsyncEnabled: fsyncToggle.checked,
+            activeProfileId: profileBox.currentValue || ""
         })
     }
 
@@ -225,6 +264,17 @@ Dialog {
         root.runtimes = opts
         root.winetricksVerbs = moss.listWinetricksVerbs(gid) || []
         root.hostTools = moss.hostTools() || {}
+        root.syncSupported = !!cfg.syncSupported
+
+        var profiles = [{ id: "", name: "Default" }]
+        var rawProfiles = cfg.launchProfiles || []
+        for (var p = 0; p < rawProfiles.length; p++) {
+            profiles.push({
+                id: rawProfiles[p].id,
+                name: rawProfiles[p].name || rawProfiles[p].id
+            })
+        }
+        root.profileModel = profiles
 
         nameField.text = cfg.name || ""
         exeField.text = cfg.exe || ""
@@ -239,6 +289,8 @@ Dialog {
         gamescopeArgsField.text = cfg.gamescopeArgs || ""
         mangohudToggle.checked = !!cfg.mangohudEnabled
         gamemodeToggle.checked = !!cfg.gamemodeEnabled
+        esyncToggle.checked = cfg.esyncEnabled !== false
+        fsyncToggle.checked = cfg.fsyncEnabled !== false
 
         var wantRunner = cfg.runnerId || ""
         runnerBox.currentIndex = 0
@@ -252,6 +304,13 @@ Dialog {
         for (var w = 0; w < winBox.model.length; w++) {
             if (winBox.model[w].id === wantWin)
                 winBox.currentIndex = w
+        }
+
+        var wantProfile = cfg.activeProfileId || ""
+        profileBox.currentIndex = 0
+        for (var pr = 0; pr < profiles.length; pr++) {
+            if (profiles[pr].id === wantProfile)
+                profileBox.currentIndex = pr
         }
         root.open()
     }
