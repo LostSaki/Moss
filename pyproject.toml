@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moss"
-version = "0.1.0"
+version = "0.2.0-pre"
 description = "Native Linux/SteamOS app for Windows games: Proton/Wine prefixes, missing-DLL fixes, Steam artwork, and setup.exe installs."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,7 +25,14 @@ moss = "moss.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-moss = ["recipes.yaml", "ui/theme.qss"]
+moss = [
+    "recipes.yaml",
+    "ui/qml/*.qml",
+    "ui/qml/qmldir",
+    "ui/qml/components/*.qml",
+    "ui/qml/pages/*.qml",
+    "ui/qml/dialogs/*.qml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

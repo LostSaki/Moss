@@ -1,0 +1,16 @@
+singleton Theme 1.0 Theme.qml
+MossButton 1.0 components/MossButton.qml
+MossSecondaryButton 1.0 components/MossSecondaryButton.qml
+MossSearchField 1.0 components/MossSearchField.qml
+MossSidebar 1.0 components/MossSidebar.qml
+MossSidebarItem 1.0 components/MossSidebarItem.qml
+MossGameCard 1.0 components/MossGameCard.qml
+MossStatusIndicator 1.0 components/MossStatusIndicator.qml
+MossToggle 1.0 components/MossToggle.qml
+MossSection 1.0 components/MossSection.qml
+LibraryPage 1.0 pages/LibraryPage.qml
+GamePage 1.0 pages/GamePage.qml
+SettingsPage 1.0 pages/SettingsPage.qml
+LogsPage 1.0 pages/LogsPage.qml
+InstallDialog 1.0 dialogs/InstallDialog.qml
+ConfirmDialog 1.0 dialogs/ConfirmDialog.qml

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+import shutil
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -17,12 +18,22 @@ class Game:
     verbs: list[str] = field(default_factory=list)
     artwork: dict[str, str] = field(default_factory=dict)
     steam_shortcut_id: int | None = None
+    favorite: bool = False
+    last_played: str = ""
 
     def exe_path(self) -> Path:
         return Path(self.exe)
 
     def prefix_path(self) -> Path:
         return Path(self.prefix)
+
+    def is_ready(self) -> bool:
+        return "vcrun2019" in self.verbs and "d3dcompiler_47" in self.verbs
+
+
+def _game_from_dict(item: dict[str, Any]) -> Game:
+    allowed = {f.name for f in fields(Game)}
+    return Game(**{k: v for k, v in item.items() if k in allowed})
 
 
 def load_library() -> dict[str, Game]:
@@ -33,7 +44,7 @@ def load_library() -> dict[str, Game]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     games: dict[str, Game] = {}
     for item in raw.get("games", []):
-        g = Game(**item)
+        g = _game_from_dict(item)
         games[g.id] = g
     return games
 
@@ -55,12 +66,23 @@ def get_game(game_id: str) -> Game | None:
     return load_library().get(game_id)
 
 
+def delete_game(game_id: str, remove_prefix: bool = False) -> None:
+    games = load_library()
+    game = games.pop(game_id, None)
+    save_library(games)
+    if remove_prefix and game:
+        root = Path(game.prefix).parent
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def default_config() -> dict[str, Any]:
     return {
         "games_folder": "",
         "steamgriddb_api_key": "",
         "proton_path": "",
         "wine_path": "",
+        "check_updates": True,
+        "create_steam_shortcuts": True,
     }
 
 
