@@ -14,7 +14,6 @@ Item {
         onClicked: moss.backToLibrary()
     }
 
-    // Hero — asymmetric: title + Play bottom-left
     Rectangle {
         id: hero
         anchors.top: back.bottom
@@ -33,7 +32,6 @@ Item {
             opacity: 0.88
         }
 
-        // Dark overlay for readability — not a decorative gradient wash
         Rectangle {
             anchors.fill: parent
             color: "#990C0D0C"
@@ -67,7 +65,7 @@ Item {
             }
             Row {
                 spacing: Theme.space8
-                topPadding: Theme.space4
+                Item { width: 1; height: Theme.space4 }
                 MossButton {
                     text: moss.busy ? "Running" : "Play"
                     enabled: !moss.busy
@@ -80,7 +78,17 @@ Item {
                         id: moreMenu
                         MenuItem { text: "Configure…"; onTriggered: root.editConfig() }
                         MenuItem { text: "View Logs"; onTriggered: moss.loadLog(moss.current.gameId) }
-                        MenuItem { text: "Open Prefix"; onTriggered: moss.openPrefix(moss.current.prefix) }
+                        MenuItem { text: "Open Prefix"; onTriggered: moss.openGamePrefix(moss.current.gameId) }
+                        MenuItem {
+                            text: "Backup Prefix"
+                            enabled: !!moss.current.canBackupPrefix
+                            onTriggered: moss.backupGamePrefix(moss.current.gameId)
+                        }
+                        MenuItem {
+                            text: "Delete Prefix…"
+                            enabled: !!moss.current.canDeletePrefix
+                            onTriggered: deletePrefixConfirm.open()
+                        }
                         MenuItem {
                             text: moss.current.favorite ? "Remove Favorite" : "Add to Favorites"
                             onTriggered: moss.toggleFavorite(moss.current.gameId)
@@ -93,7 +101,6 @@ Item {
         }
     }
 
-    // Specs as divider list — not a card stack
     Column {
         anchors.top: hero.bottom
         anchors.left: parent.left
@@ -104,10 +111,11 @@ Item {
         Repeater {
             model: [
                 { k: "Status", v: moss.current.status || "" },
-                { k: "Runtime", v: moss.current.runtime || "" },
+                { k: "Runner", v: moss.current.runtime || "" },
                 { k: "Executable", v: moss.current.exe || "" },
                 { k: "Working dir", v: moss.current.workingDir || "—" },
                 { k: "Launch args", v: moss.current.launchArgs || "—" },
+                { k: "Windows ver.", v: moss.current.windowsVersion || "default" },
                 { k: "Components", v: moss.current.verbs || "" },
                 { k: "Last played", v: moss.current.lastPlayed || "—" }
             ]
@@ -139,9 +147,23 @@ Item {
         Rectangle { width: parent.width; height: 1; color: Theme.divider }
 
         Item { width: 1; height: Theme.space16 }
-        MossSecondaryButton {
-            text: "Advanced configuration"
-            onClicked: root.editConfig()
+        Row {
+            spacing: Theme.space8
+            MossSecondaryButton {
+                text: "Advanced configuration"
+                onClicked: root.editConfig()
+            }
+            MossSecondaryButton {
+                text: "Backup prefix"
+                enabled: !!moss.current.canBackupPrefix
+                onClicked: moss.backupGamePrefix(moss.current.gameId)
+            }
+        }
+        Text {
+            visible: !moss.current.canBackupPrefix
+            text: "Prefix backup available after the first launch creates a prefix."
+            color: Theme.textMuted
+            font.pixelSize: Theme.fontCaption
         }
     }
 
@@ -150,5 +172,12 @@ Item {
         titleText: "Remove Game"
         message: "Remove this game from Moss? Files on disk stay unless you remove the prefix."
         onAccepted: moss.removeGame(moss.current.gameId, false)
+    }
+
+    ConfirmDialog {
+        id: deletePrefixConfirm
+        titleText: "Delete Prefix"
+        message: "Permanently delete this game's Wine/Proton prefix? Saves inside the prefix will be lost unless you backed up first."
+        onAccepted: moss.deleteGamePrefix(moss.current.gameId)
     }
 }

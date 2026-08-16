@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-from moss.paths import prefixes_dir
+from moss.paths import data_dir, prefixes_dir
 from moss.runtime import Runtime, detect_runtime
 from moss.scan import slug_id
 
 
 def prefix_for(game_id: str) -> Path:
     return prefixes_dir() / slug_id(game_id) / "pfx"
+
+
+def prefix_root(game_id: str) -> Path:
+    return prefixes_dir() / slug_id(game_id)
 
 
 def wine_env(runtime: Runtime, prefix: Path) -> dict[str, str]:
@@ -58,3 +66,63 @@ def create_prefix(game_id: str, runtime: Runtime | None = None) -> Path:
         pass
     marker.write_text("ok\n", encoding="utf-8")
     return prefix
+
+
+def prefix_info(game_id: str) -> dict[str, Any]:
+    root = prefix_root(game_id)
+    pfx = prefix_for(game_id)
+    exists = pfx.exists()
+    size = 0
+    if exists:
+        for path in pfx.rglob("*"):
+            if path.is_file():
+                try:
+                    size += path.stat().st_size
+                except OSError:
+                    continue
+    return {
+        "gameId": game_id,
+        "path": str(pfx),
+        "root": str(root),
+        "exists": exists,
+        "sizeBytes": size,
+        "canBackup": exists,
+        "canDelete": root.exists(),
+    }
+
+
+def open_prefix_path(game_id: str) -> str:
+    pfx = prefix_for(game_id)
+    if not pfx.exists():
+        pfx.mkdir(parents=True, exist_ok=True)
+    return str(pfx)
+
+
+def backup_prefix(game_id: str) -> dict[str, Any]:
+    """Zip the prefix directory into Moss data/backups. Real but bounded."""
+    pfx = prefix_for(game_id)
+    if not pfx.exists():
+        return {"ok": False, "message": "Prefix does not exist yet.", "path": ""}
+    backups = data_dir() / "backups"
+    backups.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    dest = backups / f"{slug_id(game_id)}-{stamp}.zip"
+    try:
+        with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for path in pfx.rglob("*"):
+                if path.is_file():
+                    zf.write(path, arcname=str(path.relative_to(pfx.parent)))
+    except OSError as exc:
+        return {"ok": False, "message": f"Backup failed: {exc}", "path": ""}
+    return {"ok": True, "message": f"Backup saved to {dest}", "path": str(dest)}
+
+
+def delete_prefix(game_id: str) -> dict[str, Any]:
+    root = prefix_root(game_id)
+    if not root.exists():
+        return {"ok": False, "message": "No prefix folder to delete.", "path": ""}
+    try:
+        shutil.rmtree(root)
+    except OSError as exc:
+        return {"ok": False, "message": f"Delete failed: {exc}", "path": str(root)}
+    return {"ok": True, "message": "Prefix deleted.", "path": str(root)}

@@ -39,14 +39,36 @@ def _workdir(game: Game) -> Path:
     return Path(game.exe).parent
 
 
-def run_once(game: Game, runtime: Runtime) -> tuple[int, str]:
-    logs_dir().mkdir(parents=True, exist_ok=True)
-    log_path = logs_dir() / f"{game.id}.log"
+def _dll_overrides_env(game: Game) -> str:
+    parts: list[str] = []
+    for dll, mode in (game.dll_overrides or {}).items():
+        name = str(dll).strip()
+        if not name:
+            continue
+        parts.append(f"{name}={str(mode).strip() or 'n,b'}")
+    return ";".join(parts)
+
+
+def build_launch_env(game: Game, runtime: Runtime) -> dict[str, str]:
     env = wine_env(runtime, Path(game.prefix))
     env["WINEDEBUG"] = "+err,+fixme"
+    overrides = _dll_overrides_env(game)
+    if overrides:
+        existing = env.get("WINEDLLOVERRIDES", "")
+        env["WINEDLLOVERRIDES"] = f"{existing};{overrides}".strip(";") if existing else overrides
+    # windows_version is persisted; winecfg apply is not automatic yet
+    if game.windows_version:
+        env["MOSS_WINDOWS_VERSION"] = game.windows_version
     for key, value in (game.env_vars or {}).items():
         if key:
             env[str(key)] = str(value)
+    return env
+
+
+def run_once(game: Game, runtime: Runtime) -> tuple[int, str]:
+    logs_dir().mkdir(parents=True, exist_ok=True)
+    log_path = logs_dir() / f"{game.id}.log"
+    env = build_launch_env(game, runtime)
     args = _parse_args(game.launch_args)
     try:
         proc = subprocess.run(
@@ -77,7 +99,7 @@ def apply_fix(game: Game, runtime: Runtime, match: RecipeMatch) -> str:
 
 
 def launch_game(game: Game, auto_fix: bool = True) -> dict:
-    runtime = detect_runtime()
+    runtime = detect_runtime(game)
     create_prefix(game.id, runtime)
     if runtime is None:
         return {
@@ -114,4 +136,5 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
         "log": tail,
         "full_log": log,
         "tried": tried,
+        "runner": runtime.as_dict(),
     }

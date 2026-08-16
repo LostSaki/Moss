@@ -102,8 +102,11 @@ def test_parse_args_and_workdir(tmp_path: Path) -> None:
 
 
 def test_list_runtimes_and_ge_status(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(runtime_mod, "_steam_roots", lambda: [])
-    monkeypatch.setattr(runtime_mod.shutil, "which", lambda name: None)
+    import moss.runners.proton as proton_mod
+    import moss.runners.wine as wine_mod
+
+    monkeypatch.setattr(proton_mod, "steam_roots", lambda: [])
+    monkeypatch.setattr(wine_mod, "discover_wine", lambda explicit="": [])
     assert runtime_mod.list_runtimes() == []
     status = runtime_mod.proton_ge_status()
     assert "message" in status
@@ -111,12 +114,14 @@ def test_list_runtimes_and_ge_status(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_list_proton_from_compat(monkeypatch, tmp_path: Path) -> None:
+    import moss.runners.proton as proton_mod
+
     steam = tmp_path / "steam"
     compat = steam / "compatibilitytools.d" / "GE-Proton9-1"
     compat.mkdir(parents=True)
     (compat / "proton").write_text("#!/bin/sh\n", encoding="utf-8")
     (compat / "version").write_text("9.1\n", encoding="utf-8")
-    monkeypatch.setattr(runtime_mod, "_steam_roots", lambda: [steam])
+    monkeypatch.setattr(proton_mod, "steam_roots", lambda: [steam])
     found = runtime_mod.list_proton_runtimes()
     assert len(found) == 1
     assert found[0].name == "GE-Proton9-1"

@@ -8,6 +8,8 @@ from typing import Any
 
 from moss.paths import config_path, ensure_dirs, library_path
 
+WINDOWS_VERSIONS = ("", "win10", "win7", "winxp")
+
 
 @dataclass
 class Game:
@@ -23,6 +25,9 @@ class Game:
     working_dir: str = ""
     launch_args: str = ""
     env_vars: dict[str, str] = field(default_factory=dict)
+    runner_id: str = ""
+    windows_version: str = ""
+    dll_overrides: dict[str, str] = field(default_factory=dict)
 
     def exe_path(self) -> Path:
         return Path(self.exe)
@@ -34,24 +39,47 @@ class Game:
         return "vcrun2019" in self.verbs and "d3dcompiler_47" in self.verbs
 
 
+def _parse_kv_map(raw: Any) -> dict[str, str]:
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): str(v) for k, v in raw.items() if str(k).strip()}
+    if isinstance(raw, list):
+        parsed: dict[str, str] = {}
+        for entry in raw:
+            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                parsed[str(entry[0]).strip()] = str(entry[1])
+            elif isinstance(entry, str) and "=" in entry:
+                k, _, v = entry.partition("=")
+                if k.strip():
+                    parsed[k.strip()] = v.strip()
+        return parsed
+    if isinstance(raw, str):
+        parsed = {}
+        for line in raw.splitlines():
+            text = line.strip()
+            if not text or text.startswith("#") or "=" not in text:
+                continue
+            k, _, v = text.partition("=")
+            if k.strip():
+                parsed[k.strip()] = v.strip()
+        return parsed
+    return {}
+
+
 def _game_from_dict(item: dict[str, Any]) -> Game:
     allowed = {f.name for f in fields(Game)}
     data = {k: v for k, v in item.items() if k in allowed}
-    env = data.get("env_vars")
-    if env is None:
-        data["env_vars"] = {}
-    elif isinstance(env, list):
-        # tolerate [["KEY","VAL"], ...] or ["KEY=VAL", ...]
-        parsed: dict[str, str] = {}
-        for entry in env:
-            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                parsed[str(entry[0])] = str(entry[1])
-            elif isinstance(entry, str) and "=" in entry:
-                k, _, v = entry.partition("=")
-                parsed[k.strip()] = v.strip()
-        data["env_vars"] = parsed
-    elif not isinstance(env, dict):
-        data["env_vars"] = {}
+    data["env_vars"] = _parse_kv_map(data.get("env_vars"))
+    data["dll_overrides"] = _parse_kv_map(data.get("dll_overrides"))
+    win = str(data.get("windows_version") or "")
+    if win and win not in WINDOWS_VERSIONS:
+        data["windows_version"] = ""
+    else:
+        data["windows_version"] = win
+    data.setdefault("runner_id", "")
+    data.setdefault("working_dir", "")
+    data.setdefault("launch_args", "")
     return Game(**data)
 
 

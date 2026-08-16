@@ -19,6 +19,7 @@ from PySide6.QtGui import QDesktopServices
 from moss.install import add_from_exe, add_from_folder, install_setup
 from moss.launch import launch_game
 from moss.paths import data_dir, logs_dir
+from moss.prefix import backup_prefix, delete_prefix, open_prefix_path, prefix_info
 from moss.runtime import (
     detect_runtime,
     install_proton_ge,
@@ -26,7 +27,7 @@ from moss.runtime import (
     proton_ge_status,
     set_default_runtime,
 )
-from moss.store import delete_game, get_game, load_config, load_library, save_config, upsert
+from moss.store import WINDOWS_VERSIONS, delete_game, get_game, load_config, load_library, save_config, upsert
 from moss.themes import list_themes, theme_tokens
 from moss.updatecheck import REPO_URL, check_for_update
 
@@ -305,15 +306,21 @@ class MossController(QObject):
         self.libraryChanged.emit()
 
     def _game_payload(self, g) -> dict:
-        rt = detect_runtime()
+        rt = detect_runtime(g)
         cover = _file_url(g.artwork.get("grid") or "")
+        info = prefix_info(g.id)
         return {
             "gameId": g.id,
             "name": g.name,
             "cover": _file_url(g.artwork.get("hero") or g.artwork.get("grid") or "") or cover,
             "status": _status(g),
-            "runtime": (rt.kind if rt else "none"),
-            "prefix": g.prefix,
+            "runtime": (rt.name if rt else "none"),
+            "runtimeKind": (rt.kind if rt else "none"),
+            "runnerId": g.runner_id or (rt.id if rt else ""),
+            "prefix": g.prefix or info.get("path") or "",
+            "prefixExists": bool(info.get("exists")),
+            "canBackupPrefix": bool(info.get("canBackup")),
+            "canDeletePrefix": bool(info.get("canDelete")),
             "exe": g.exe,
             "verbs": "  ".join(g.verbs) if g.verbs else "—",
             "lastPlayed": g.last_played or "—",
@@ -322,6 +329,8 @@ class MossController(QObject):
             "workingDir": g.working_dir or "",
             "launchArgs": g.launch_args or "",
             "envVars": _env_to_lines(g.env_vars),
+            "windowsVersion": g.windows_version or "",
+            "dllOverrides": _env_to_lines(g.dll_overrides),
         }
 
     @Slot(str)
@@ -408,6 +417,33 @@ class MossController(QObject):
     def openPrefix(self, path: str) -> None:
         if path:
             QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    @Slot(str)
+    def openGamePrefix(self, game_id: str) -> None:
+        path = open_prefix_path(game_id)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    @Slot(str, result="QVariant")
+    def prefixInfo(self, game_id: str):
+        return prefix_info(game_id)
+
+    @Slot(str)
+    def backupGamePrefix(self, game_id: str) -> None:
+        result = backup_prefix(game_id)
+        self.toast.emit(str(result.get("message") or ("Backup done" if result.get("ok") else "Backup failed")))
+        if self._current.get("gameId") == game_id:
+            self.openGame(game_id)
+
+    @Slot(str)
+    def deleteGamePrefix(self, game_id: str) -> None:
+        result = delete_prefix(game_id)
+        self.toast.emit(str(result.get("message") or ("Deleted" if result.get("ok") else "Delete failed")))
+        g = get_game(game_id)
+        if g and result.get("ok"):
+            g.prefix = str(open_prefix_path(game_id))
+            upsert(g)
+        if self._current.get("gameId") == game_id:
+            self.openGame(game_id)
 
     @Slot()
     def openDataDir(self) -> None:
@@ -522,6 +558,7 @@ class MossController(QObject):
         g = get_game(game_id)
         if not g:
             return {}
+        rt = detect_runtime(g)
         return {
             "gameId": g.id,
             "name": g.name,
@@ -530,6 +567,11 @@ class MossController(QObject):
             "launchArgs": g.launch_args or "",
             "envVars": "\n".join(_env_to_lines(g.env_vars)),
             "favorite": g.favorite,
+            "runnerId": g.runner_id or "",
+            "resolvedRunnerId": (rt.id if rt else ""),
+            "windowsVersion": g.windows_version or "",
+            "dllOverrides": "\n".join(_env_to_lines(g.dll_overrides)),
+            "windowsVersions": [v for v in WINDOWS_VERSIONS],
         }
 
     @Slot("QVariant")
@@ -548,7 +590,6 @@ class MossController(QObject):
             g.working_dir = str(data.get("workingDir") or "").strip()
         if "launchArgs" in data:
             raw = str(data.get("launchArgs") or "")
-            # Normalize via shlex round-trip when possible
             try:
                 g.launch_args = " ".join(shlex.split(raw, posix=True)) if raw.strip() else ""
             except ValueError:
@@ -559,6 +600,17 @@ class MossController(QObject):
                 g.env_vars = _lines_to_env(env_raw)
             else:
                 g.env_vars = _lines_to_env(str(env_raw or "").splitlines())
+        if "dllOverrides" in data:
+            dll_raw = data.get("dllOverrides")
+            if isinstance(dll_raw, list):
+                g.dll_overrides = _lines_to_env(dll_raw)
+            else:
+                g.dll_overrides = _lines_to_env(str(dll_raw or "").splitlines())
+        if "runnerId" in data:
+            g.runner_id = str(data.get("runnerId") or "").strip()
+        if "windowsVersion" in data:
+            win = str(data.get("windowsVersion") or "").strip()
+            g.windows_version = win if win in WINDOWS_VERSIONS else ""
         if "favorite" in data:
             g.favorite = bool(data["favorite"])
         upsert(g)
