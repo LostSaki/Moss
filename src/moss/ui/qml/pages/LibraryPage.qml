@@ -4,6 +4,9 @@ import ".."
 
 Item {
     id: root
+    signal scanLibrary()
+    signal addGameFolder()
+    signal addExe()
 
     Text {
         id: heading
@@ -32,7 +35,6 @@ Item {
         onTextChanged: moss.setSearch(text)
     }
 
-    // Empty state — left-of-center in content, not giant centered art
     Item {
         anchors.top: sub.bottom
         anchors.left: parent.left
@@ -45,7 +47,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: -40
-            spacing: Theme.space12
+            spacing: Theme.space16
             width: Math.min(420, parent.width - 40)
 
             Text {
@@ -57,9 +59,25 @@ Item {
             Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Add a Windows game folder, executable, or installer."
+                text: "Scan a folder that contains many games, or add one specific game folder / EXE."
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontBody
+            }
+            Row {
+                spacing: Theme.space8
+                MossButton {
+                    text: moss.scanningLibrary ? "Scanning…" : "Scan library"
+                    enabled: !moss.scanningLibrary
+                    onClicked: root.scanLibrary()
+                }
+                MossSecondaryButton {
+                    text: "Add this game folder"
+                    onClicked: root.addGameFolder()
+                }
+                MossSecondaryButton {
+                    text: "Add EXE"
+                    onClicked: root.addExe()
+                }
             }
         }
     }

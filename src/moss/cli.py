@@ -6,7 +6,7 @@ from pathlib import Path
 
 from moss import __version__
 from moss.artwork import fetch_artwork, search_steamgriddb
-from moss.install import add_from_exe, add_from_folder, install_setup
+from moss.install import add_from_exe, add_from_folder, add_single_game_folder, install_setup
 from moss.launch import launch_game
 from moss.paths import ensure_dirs
 from moss.runtime import detect_runtime
@@ -21,6 +21,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_scan = sub.add_parser("scan", help="Scan a folder for Windows games and add them")
     p_scan.add_argument("folder", type=Path)
+    p_scan.add_argument(
+        "--single",
+        action="store_true",
+        help="Treat the folder as one game (do not scan sibling titles)",
+    )
 
     p_add = sub.add_parser("add", help="Add a single .exe")
     p_add.add_argument("exe", type=Path)
@@ -49,7 +54,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "scan":
-        games = add_from_folder(args.folder)
+        if args.single:
+            g = add_single_game_folder(args.folder)
+            games = [g] if g else []
+        else:
+            games = add_from_folder(args.folder)
         if not games:
             print("No suitable .exe files found.")
             return 1

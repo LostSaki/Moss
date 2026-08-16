@@ -62,6 +62,18 @@ ApplicationWindow {
             failDialog.open()
         }
         function onRunningChanged() { }
+        function onDiscoveredGames(rows) {
+            importGames.openWith(rows)
+        }
+    }
+
+    function requestScanLibrary() {
+        if (moss.gamesFolder && moss.gamesFolder.length > 0) {
+            moss.scanGamesFolder(moss.gamesFolder)
+        } else {
+            libraryFolderDlg.title = "Choose games library folder"
+            libraryFolderDlg.open()
+        }
     }
 
     // Full-window botanical wash (visible through translucent sidebar when glass is on)
@@ -123,7 +135,11 @@ ApplicationWindow {
                 Layout.fillHeight: true
                 Layout.preferredWidth: Theme.sidebarWidth
                 onNavigate: (key) => moss.setFilter(key)
-                onAddFolder: folderDlg.open()
+                onScanLibrary: win.requestScanLibrary()
+                onAddFolder: {
+                    gameFolderDlg.title = "Add this game folder"
+                    gameFolderDlg.open()
+                }
                 onAddExe: exeDlg.open()
                 onAddInstall: installDlg.open()
             }
@@ -167,6 +183,12 @@ ApplicationWindow {
                         anchors.fill: parent
                         visible: moss.page === "library"
                         z: 1
+                        onScanLibrary: win.requestScanLibrary()
+                        onAddGameFolder: {
+                            gameFolderDlg.title = "Add this game folder"
+                            gameFolderDlg.open()
+                        }
+                        onAddExe: exeDlg.open()
                     }
                     GamePage {
                         anchors.fill: parent
@@ -191,9 +213,14 @@ ApplicationWindow {
     }
 
     FolderDialog {
-        id: folderDlg
-        title: "Add game folder"
-        onAccepted: moss.addFolder(moss.localPath(selectedFolder))
+        id: libraryFolderDlg
+        title: "Choose games library folder"
+        onAccepted: moss.scanGamesFolder(moss.localPath(selectedFolder))
+    }
+    FolderDialog {
+        id: gameFolderDlg
+        title: "Add this game folder"
+        onAccepted: moss.addGameFolder(moss.localPath(selectedFolder))
     }
     FileDialog {
         id: exeDlg
@@ -204,6 +231,7 @@ ApplicationWindow {
     InstallDialog { id: installDlg }
     OnboardingDialog { id: onboarding }
     GameConfigDialog { id: gameConfig }
+    ImportGamesDialog { id: importGames }
 
     ConfirmDialog {
         id: antiCheatDialog

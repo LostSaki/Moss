@@ -6,13 +6,16 @@ on:
       tag:
         description: Release tag to attach Moss binaries to
         required: true
-        default: v0.2.0
+        default: v0.2.2
   push:
     tags:
       - "v*"
 
 permissions:
   contents: write
+
+env:
+  VERSION: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   linux:
@@ -24,44 +27,86 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install system libraries for Qt
+      - name: Install system libraries for Qt and packaging
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libegl1 libgl1 libxkbcommon0 libxcb-cursor0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            libxcb-xfixes0 libdbus-1-3
+            libxcb-xfixes0 libdbus-1-3 \
+            dpkg-dev flatpak flatpak-builder \
+            desktop-file-utils libfuse2
 
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[ui]" pyinstaller
 
-      - name: Build
+      - name: Build PyInstaller binary
         run: python -m PyInstaller --noconfirm moss.spec
 
-      - name: Package
+      - name: Package linux binary
         run: |
           chmod +x dist/Moss
           cp dist/Moss dist/Moss-linux-x86_64
           ls -lh dist/Moss-linux-x86_64
 
+      - name: Build AppImage
+        env:
+          VERSION: ${{ env.VERSION }}
+        run: |
+          chmod +x packaging/linux/build_appimage.sh
+          # Strip leading v from tag for VERSION if present
+          export VERSION="${VERSION#v}"
+          packaging/linux/build_appimage.sh
+
+      - name: Build .deb
+        env:
+          VERSION: ${{ env.VERSION }}
+        run: |
+          chmod +x packaging/linux/build_deb.sh
+          export VERSION="${VERSION#v}"
+          packaging/linux/build_deb.sh
+
+      - name: Build Flatpak bundle
+        env:
+          VERSION: ${{ env.VERSION }}
+        run: |
+          chmod +x packaging/flatpak/build_flatpak.sh
+          export VERSION="${VERSION#v}"
+          packaging/flatpak/build_flatpak.sh
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Moss-linux-x86_64
-          path: dist/Moss-linux-x86_64
+          name: Moss-linux-packages
+          path: |
+            dist/Moss-linux-x86_64
+            dist/Moss-x86_64.AppImage
+            dist/moss_*_amd64.deb
+            dist/Moss-x86_64.flatpak
 
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          # Ensure tag exists as a release
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TAG" --notes "Moss $TAG"
+          NOTES="packaging/release-notes/${TAG}.md"
+          if [[ ! -f "$NOTES" ]]; then
+            NOTES="packaging/release-notes/v0.2.2.md"
           fi
-          gh release upload "$TAG" dist/Moss-linux-x86_64 --clobber
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Moss ${TAG}" --notes-file "$NOTES"
+          else
+            gh release edit "$TAG" --notes-file "$NOTES" || true
+          fi
+          VER="${TAG#v}"
+          gh release upload "$TAG" \
+            dist/Moss-linux-x86_64 \
+            dist/Moss-x86_64.AppImage \
+            "dist/moss_${VER}_amd64.deb" \
+            dist/Moss-x86_64.flatpak \
+            --clobber
 
   windows:
     runs-on: windows-latest
@@ -80,16 +125,33 @@ jobs:
       - name: Build
         run: python -m PyInstaller --noconfirm moss.spec
 
-      - name: Package
+      - name: Package portable exe
         shell: pwsh
         run: |
           Copy-Item dist\Moss.exe dist\Moss-windows-x86_64.exe
           Get-Item dist\Moss-windows-x86_64.exe | Format-List Name, Length
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.tag || github.ref_name }}"
+          $ver = $tag.TrimStart('v')
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=$ver" `
+            "/DSourceExe=$pwd\dist\Moss.exe" `
+            packaging\windows\moss.iss
+          Get-ChildItem dist\Moss-Setup-*.exe | Format-List Name, Length
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Moss-windows-x86_64
-          path: dist/Moss-windows-x86_64.exe
+          name: Moss-windows-packages
+          path: |
+            dist/Moss-windows-x86_64.exe
+            dist/Moss-Setup-*.exe
 
       - name: Upload to GitHub Release
         env:
@@ -97,7 +159,17 @@ jobs:
         shell: bash
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TAG" --notes "Moss $TAG"
+          NOTES="packaging/release-notes/${TAG}.md"
+          if [[ ! -f "$NOTES" ]]; then
+            NOTES="packaging/release-notes/v0.2.2.md"
           fi
-          gh release upload "$TAG" dist/Moss-windows-x86_64.exe --clobber
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Moss ${TAG}" --notes-file "$NOTES"
+          else
+            gh release edit "$TAG" --notes-file "$NOTES" || true
+          fi
+          VER="${TAG#v}"
+          gh release upload "$TAG" \
+            dist/Moss-windows-x86_64.exe \
+            "dist/Moss-Setup-${VER}.exe" \
+            --clobber
