@@ -16,6 +16,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices
 
+from moss import __version__
 from moss.components import list_common_verbs, run_verb
 from moss.debugreport import build_debug_report
 from moss.install import add_from_exe, add_from_folder, install_setup
@@ -199,11 +200,18 @@ class LaunchWorker(QThread):
 
 
 class UpdateWorker(QThread):
-    done = Signal(bool, str, str)
+    done = Signal(bool, str, str, str, str, bool)
 
     def run(self) -> None:
         info = check_for_update()
-        self.done.emit(info.available, info.message, info.url)
+        self.done.emit(
+            bool(info.available),
+            str(info.current or __version__),
+            str(info.latest or ""),
+            str(info.message or ""),
+            str(info.url or REPO_URL),
+            bool(info.ok),
+        )
 
 
 class GeInstallWorker(QThread):
@@ -218,6 +226,7 @@ class MossController(QObject):
     libraryChanged = Signal()
     toast = Signal(str)
     updateAvailable = Signal(str, str)
+    updateStatusChanged = Signal()
     logReady = Signal(str)
     error = Signal(str)
     currentChanged = Signal()
@@ -243,12 +252,19 @@ class MossController(QObject):
         self._worker: LaunchWorker | None = None
         self._upd: UpdateWorker | None = None
         self._ge: GeInstallWorker | None = None
+        self._checking_updates = False
+        self._last_update: dict = {
+            "available": False,
+            "current": __version__,
+            "latest": "",
+            "message": "",
+            "url": REPO_URL,
+            "ok": True,
+        }
         self._cfg = load_config()
         self._tokens = theme_tokens(str(self._cfg.get("theme") or "moss_dark"))
         if self._cfg.get("check_updates", True):
-            self._upd = UpdateWorker(self)
-            self._upd.done.connect(self._on_update)
-            self._upd.start()
+            self.checkUpdatesNow()
 
     def _reload_cfg(self) -> None:
         self._cfg = load_config()
@@ -258,9 +274,37 @@ class MossController(QObject):
         self.glassChanged.emit()
         self.onboardingChanged.emit()
 
-    def _on_update(self, available: bool, message: str, url: str) -> None:
-        if available:
+    def _on_update_done(
+        self,
+        available: bool,
+        current: str,
+        latest: str,
+        message: str,
+        url: str,
+        ok: bool,
+    ) -> None:
+        self._checking_updates = False
+        self._last_update = {
+            "available": available,
+            "current": current or __version__,
+            "latest": latest,
+            "message": message,
+            "url": url or REPO_URL,
+            "ok": ok,
+        }
+        self.updateStatusChanged.emit()
+        if available and message:
             self.updateAvailable.emit(message, url)
+
+    @Slot()
+    def checkUpdatesNow(self) -> None:
+        if self._checking_updates:
+            return
+        self._checking_updates = True
+        self.updateStatusChanged.emit()
+        self._upd = UpdateWorker(self)
+        self._upd.done.connect(self._on_update_done)
+        self._upd.start()
 
     @Property(str, notify=pageChanged)
     def page(self) -> str:
@@ -293,8 +337,20 @@ class MossController(QObject):
         return REPO_URL
 
     @Property(str, constant=True)
+    def version(self) -> str:
+        return __version__
+
+    @Property(str, constant=True)
     def dataDir(self) -> str:
         return str(data_dir())
+
+    @Property("QVariant", notify=updateStatusChanged)
+    def updateStatus(self) -> dict:
+        return dict(self._last_update)
+
+    @Property(bool, notify=updateStatusChanged)
+    def checkingUpdates(self) -> bool:
+        return self._checking_updates
 
     @Property(str, notify=themeChanged)
     def theme(self) -> str:

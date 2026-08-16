@@ -18,6 +18,8 @@ class UpdateInfo:
     latest: str = ""
     url: str = RELEASES_URL
     message: str = ""
+    current: str = ""
+    ok: bool = True  # False when network/API failed
 
 
 def _get(url: str) -> dict | None:
@@ -41,13 +43,51 @@ def _newer(latest: str, current: str) -> bool:
     return parts(latest) > parts(current)
 
 
+def _fmt_ver(v: str) -> str:
+    v = (v or "").strip()
+    if not v:
+        return ""
+    return v if v.lower().startswith("v") else f"v{v}"
+
+
 def check_for_update(current: str | None = None) -> UpdateInfo:
     current = current or __version__
+    cur_label = _fmt_ver(current)
     data = _get(f"{GITHUB_API}/releases/latest")
-    if data and data.get("tag_name"):
+    if data is None:
+        return UpdateInfo(
+            available=False,
+            latest="",
+            current=current,
+            url=RELEASES_URL,
+            message="Couldn't reach GitHub · try again later",
+            ok=False,
+        )
+    if data.get("tag_name"):
         tag = str(data["tag_name"])
         url = data.get("html_url") or RELEASES_URL
         if _newer(tag, current):
-            return UpdateInfo(True, latest=tag, url=url, message=f"Update {tag} available")
-        return UpdateInfo(False, latest=tag, url=url)
-    return UpdateInfo(False, latest=current, url=REPO_URL)
+            return UpdateInfo(
+                available=True,
+                latest=tag,
+                current=current,
+                url=url,
+                message=f"Update available · {_fmt_ver(tag)} (you have {cur_label})",
+                ok=True,
+            )
+        return UpdateInfo(
+            available=False,
+            latest=tag,
+            current=current,
+            url=url,
+            message=f"You're up to date · {cur_label}",
+            ok=True,
+        )
+    return UpdateInfo(
+        available=False,
+        latest="",
+        current=current,
+        url=RELEASES_URL,
+        message="Couldn't reach GitHub · try again later",
+        ok=False,
+    )

@@ -366,11 +366,87 @@ Item {
                 MossSection {
                     visible: root.section === "updates"
                     title: "Updates"
-                    description: "Automatically check for new Moss releases."
-                    MossToggle {
-                        id: updatesOn
-                        checked: cfg.check_updates !== false
-                        text: "Check for Updates"
+                    description: "Moss release checks against GitHub."
+                    Column {
+                        width: parent.width
+                        spacing: Theme.space16
+
+                        Row {
+                            spacing: Theme.space8
+                            Text {
+                                text: "Installed"
+                                color: Theme.textMuted
+                                font.pixelSize: Theme.fontCaption
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: "v" + moss.version
+                                color: Theme.textPrimary
+                                font.pixelSize: Theme.fontSecondary
+                                font.weight: Font.Medium
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MossToggle {
+                            id: updatesOn
+                            checked: cfg.check_updates !== false
+                            text: "Check for updates on launch"
+                        }
+
+                        Row {
+                            spacing: Theme.space8
+                            MossButton {
+                                id: checkNowBtn
+                                text: moss.checkingUpdates ? "Checking…" : "Check now"
+                                enabled: !moss.checkingUpdates
+                                onClicked: moss.checkUpdatesNow()
+                            }
+                            MossSecondaryButton {
+                                visible: !!(moss.updateStatus.available)
+                                text: "View release"
+                                onClicked: moss.openUrl(moss.updateStatus.url || moss.repoUrl)
+                            }
+                            MossSecondaryButton {
+                                visible: !!(moss.updateStatus.available)
+                                text: "Download"
+                                onClicked: moss.openUrl(moss.updateStatus.url || moss.repoUrl)
+                            }
+                        }
+
+                        Text {
+                            id: updateStatusLabel
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: moss.checkingUpdates
+                                  ? "Checking…"
+                                  : (moss.updateStatus.message || "Tap Check now to look for a newer release.")
+                            color: moss.updateStatus.available ? Theme.accent
+                                 : (!moss.updateStatus.ok && moss.updateStatus.message ? Theme.warning
+                                 : Theme.textMuted)
+                            font.pixelSize: Theme.fontSecondary
+                            opacity: 1
+                            Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
+
+                            Connections {
+                                target: moss
+                                function onUpdateStatusChanged() {
+                                    updateStatusLabel.opacity = 0
+                                    statusFadeIn.start()
+                                }
+                            }
+                            SequentialAnimation {
+                                id: statusFadeIn
+                                PauseAnimation { duration: 20 }
+                                NumberAnimation {
+                                    target: updateStatusLabel
+                                    property: "opacity"
+                                    to: 1
+                                    duration: Theme.durationNormal
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
                     }
                 }
 
