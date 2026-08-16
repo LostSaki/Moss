@@ -1,0 +1,104 @@
+* {
+    background: #000000;
+    color: #e6e6e6;
+    font-family: "Geist", "Inter", "Segoe UI", sans-serif;
+    font-size: 13px;
+}
+
+QMainWindow, QWidget#root {
+    background: #000000;
+}
+
+QWidget#sidebar {
+    background: #111111;
+    border-right: 1px solid #222222;
+}
+
+QLineEdit, QPlainTextEdit {
+    background: #000000;
+    border: 1px solid #222222;
+    border-radius: 10px;
+    padding: 8px 10px;
+    color: #e6e6e6;
+    selection-background-color: #6b2fd6;
+}
+
+QListWidget {
+    background: #111111;
+    border: none;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+QListWidget::item:selected {
+    background: #1a0a2e;
+    color: #c9a0ff;
+}
+
+QPushButton {
+    background: transparent;
+    border: 1px solid #222222;
+    border-radius: 10px;
+    padding: 8px 16px;
+    color: #e6e6e6;
+}
+
+QPushButton#play {
+    background: #00e676;
+    color: #000000;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton#stop {
+    background: #6b2fd6;
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton:disabled {
+    color: #555555;
+    border-color: #1a1a1a;
+}
+
+QLabel#title {
+    font-size: 28px;
+    font-weight: 300;
+    color: #f5f5f5;
+}
+
+QLabel#meta {
+    font-family: "Consolas", "Cascadia Mono", "Courier New", monospace;
+    font-size: 11px;
+    color: #888888;
+    letter-spacing: 1px;
+}
+
+QLabel#statusOk {
+    color: #00e676;
+    font-family: "Consolas", "Cascadia Mono", monospace;
+    font-size: 11px;
+}
+
+QLabel#statusBad {
+    color: #c9a0ff;
+    font-family: "Consolas", "Cascadia Mono", monospace;
+    font-size: 11px;
+}
+
+QSplitter::handle {
+    background: #222222;
+    width: 1px;
+}
+
+QStatusBar {
+    background: #000000;
+    border-top: 1px solid #222222;
+    color: #888888;
+}

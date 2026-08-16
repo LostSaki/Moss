@@ -1,0 +1,36 @@
+recipes:
+  - id: vcrun2019
+    patterns:
+      - "VCRUNTIME140"
+      - "MSVCP140"
+      - "api-ms-win-crt"
+    action: winetricks
+    verb: vcrun2019
+
+  - id: d3dcompiler
+    patterns:
+      - "d3dcompiler_47"
+      - "D3DCompile"
+    action: winetricks
+    verb: d3dcompiler_47
+
+  - id: vulkan_missing
+    patterns:
+      - "vkCreateInstance"
+      - "Failed to create Vulkan"
+      - "DXVK: No Vulkan"
+    action: report
+    message: Vulkan is missing or broken. Install GPU drivers / vulkaninfo; Moss will not install drivers.
+
+  - id: eac_unsupported
+    patterns:
+      - "Easy Anti-Cheat"
+      - "SEC_E_INVALID_TOKEN"
+      - "EasyAntiCheat"
+    action: report
+    message: Easy Anti-Cheat is not supported. Stopping auto-fix.
+
+  - id: import_dll
+    patterns:
+      - "err:module:import_dll"
+    action: map_dll
