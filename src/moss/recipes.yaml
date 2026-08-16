@@ -28,7 +28,15 @@ recipes:
       - "SEC_E_INVALID_TOKEN"
       - "EasyAntiCheat"
     action: report
-    message: Easy Anti-Cheat is not supported. Stopping auto-fix.
+    message: Easy Anti-Cheat is not supported under Proton/Wine. This title will not launch in Moss.
+
+  - id: battleye_unsupported
+    patterns:
+      - "BattlEye"
+      - "BEService"
+      - "BattlEye Service"
+    action: report
+    message: BattlEye is not supported under Proton/Wine. This title will not launch in Moss.
 
   - id: import_dll
     patterns:

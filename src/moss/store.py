@@ -8,6 +8,8 @@ from typing import Any
 
 from moss.paths import config_path, ensure_dirs, library_path
 
+WINDOWS_VERSIONS = ("", "win10", "win7", "winxp")
+
 
 @dataclass
 class Game:
@@ -20,6 +22,18 @@ class Game:
     steam_shortcut_id: int | None = None
     favorite: bool = False
     last_played: str = ""
+    working_dir: str = ""
+    launch_args: str = ""
+    env_vars: dict[str, str] = field(default_factory=dict)
+    runner_id: str = ""
+    windows_version: str = ""
+    dll_overrides: dict[str, str] = field(default_factory=dict)
+    dxvk_enabled: bool = True
+    vkd3d_enabled: bool = True
+    gamescope_enabled: bool = False
+    gamescope_args: str = ""
+    mangohud_enabled: bool = False
+    gamemode_enabled: bool = False
 
     def exe_path(self) -> Path:
         return Path(self.exe)
@@ -31,9 +45,60 @@ class Game:
         return "vcrun2019" in self.verbs and "d3dcompiler_47" in self.verbs
 
 
+def _parse_kv_map(raw: Any) -> dict[str, str]:
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): str(v) for k, v in raw.items() if str(k).strip()}
+    if isinstance(raw, list):
+        parsed: dict[str, str] = {}
+        for entry in raw:
+            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
+                parsed[str(entry[0]).strip()] = str(entry[1])
+            elif isinstance(entry, str) and "=" in entry:
+                k, _, v = entry.partition("=")
+                if k.strip():
+                    parsed[k.strip()] = v.strip()
+        return parsed
+    if isinstance(raw, str):
+        parsed = {}
+        for line in raw.splitlines():
+            text = line.strip()
+            if not text or text.startswith("#") or "=" not in text:
+                continue
+            k, _, v = text.partition("=")
+            if k.strip():
+                parsed[k.strip()] = v.strip()
+        return parsed
+    return {}
+
+
 def _game_from_dict(item: dict[str, Any]) -> Game:
     allowed = {f.name for f in fields(Game)}
-    return Game(**{k: v for k, v in item.items() if k in allowed})
+    data = {k: v for k, v in item.items() if k in allowed}
+    data["env_vars"] = _parse_kv_map(data.get("env_vars"))
+    data["dll_overrides"] = _parse_kv_map(data.get("dll_overrides"))
+    win = str(data.get("windows_version") or "")
+    if win and win not in WINDOWS_VERSIONS:
+        data["windows_version"] = ""
+    else:
+        data["windows_version"] = win
+    data.setdefault("runner_id", "")
+    data.setdefault("working_dir", "")
+    data.setdefault("launch_args", "")
+    data.setdefault("dxvk_enabled", True)
+    data.setdefault("vkd3d_enabled", True)
+    data.setdefault("gamescope_enabled", False)
+    data.setdefault("gamescope_args", "")
+    data.setdefault("mangohud_enabled", False)
+    data.setdefault("gamemode_enabled", False)
+    data["dxvk_enabled"] = bool(data.get("dxvk_enabled", True))
+    data["vkd3d_enabled"] = bool(data.get("vkd3d_enabled", True))
+    data["gamescope_enabled"] = bool(data.get("gamescope_enabled", False))
+    data["mangohud_enabled"] = bool(data.get("mangohud_enabled", False))
+    data["gamemode_enabled"] = bool(data.get("gamemode_enabled", False))
+    data["gamescope_args"] = str(data.get("gamescope_args") or "")
+    return Game(**data)
 
 
 def load_library() -> dict[str, Game]:
@@ -81,8 +146,13 @@ def default_config() -> dict[str, Any]:
         "steamgriddb_api_key": "",
         "proton_path": "",
         "wine_path": "",
+        "preferred_runtime": "auto",  # auto | proton | wine
+        "default_runtime_id": "",
         "check_updates": True,
         "create_steam_shortcuts": True,
+        "theme": "moss_dark",
+        "glass_enabled": False,
+        "onboarding_complete": False,
     }
 
 

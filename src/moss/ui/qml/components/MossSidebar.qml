@@ -3,9 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import ".."
 
-Rectangle {
+Item {
     id: root
-    color: Theme.backgroundElevated
     width: Theme.sidebarWidth
     property string currentKey: "all"
     signal navigate(string key)
@@ -14,17 +13,24 @@ Rectangle {
     signal addInstall()
 
     Rectangle {
+        anchors.fill: parent
+        color: Theme.panelFill
+    }
+
+    Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: 1
         color: Theme.divider
+        z: 1
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.space12
         spacing: 2
+        z: 2
 
         Text {
             text: "Moss"
@@ -99,6 +105,13 @@ Rectangle {
             onClicked: addMenu.open()
             Menu {
                 id: addMenu
+                background: Rectangle {
+                    implicitWidth: 220
+                    color: Theme.panelFill
+                    border.width: 1
+                    border.color: Theme.border
+                    radius: Theme.radiusMedium
+                }
                 MenuItem { text: "Add Game Folder"; onTriggered: root.addFolder() }
                 MenuItem { text: "Add EXE"; onTriggered: root.addExe() }
                 MenuItem { text: "Install Windows Game"; onTriggered: root.addInstall() }

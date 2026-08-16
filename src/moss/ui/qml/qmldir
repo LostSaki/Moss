@@ -14,3 +14,5 @@ SettingsPage 1.0 pages/SettingsPage.qml
 LogsPage 1.0 pages/LogsPage.qml
 InstallDialog 1.0 dialogs/InstallDialog.qml
 ConfirmDialog 1.0 dialogs/ConfirmDialog.qml
+OnboardingDialog 1.0 dialogs/OnboardingDialog.qml
+GameConfigDialog 1.0 dialogs/GameConfigDialog.qml

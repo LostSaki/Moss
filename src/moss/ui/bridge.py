@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -15,13 +16,22 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QDesktopServices
 
+from moss.components import list_common_verbs, run_verb
 from moss.install import add_from_exe, add_from_folder, install_setup
 from moss.launch import launch_game
 from moss.paths import data_dir, logs_dir
-from moss.runtime import detect_runtime
-from moss.store import delete_game, get_game, load_config, load_library, save_config, upsert
+from moss.prefix import apply_windows_version, backup_prefix, delete_prefix, open_prefix_path, prefix_info
+from moss.runtime import (
+    detect_runtime,
+    install_proton_ge,
+    list_runtimes,
+    proton_ge_status,
+    set_default_runtime,
+)
+from moss.store import WINDOWS_VERSIONS, delete_game, get_game, load_config, load_library, save_config, upsert
+from moss.themes import AUTO_GLASS_THEMES, THEMES, list_themes, theme_tokens
 from moss.updatecheck import REPO_URL, check_for_update
-
+from moss.wrappers import host_tools_summary
 
 def _file_url(path: str) -> str:
     if not path or not Path(path).is_file():
@@ -31,6 +41,25 @@ def _file_url(path: str) -> str:
 
 def _status(game) -> str:
     return "Ready" if game.is_ready() else "Needs Attention"
+
+
+def _env_to_lines(env: dict) -> list[str]:
+    return [f"{k}={v}" for k, v in sorted((env or {}).items())]
+
+
+def _lines_to_env(lines) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not lines:
+        return out
+    for line in lines:
+        text = str(line).strip()
+        if not text or text.startswith("#") or "=" not in text:
+            continue
+        key, _, val = text.partition("=")
+        key = key.strip()
+        if key:
+            out[key] = val.strip()
+    return out
 
 
 class GameListModel(QAbstractListModel):
@@ -139,7 +168,7 @@ class GameListModel(QAbstractListModel):
 
 
 class LaunchWorker(QThread):
-    finished_ok = Signal(str, bool, str)
+    finished_ok = Signal(str, bool, str, bool, str)
 
     def __init__(self, game_id: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -148,14 +177,16 @@ class LaunchWorker(QThread):
     def run(self) -> None:
         game = get_game(self._game_id)
         if not game:
-            self.finished_ok.emit(self._game_id, False, "Unknown game")
+            self.finished_ok.emit(self._game_id, False, "Unknown game", False, "")
             return
         result = launch_game(game)
         log = result.get("log") or ""
         tried = result.get("tried") or []
         if tried:
             log = "Tried: " + "; ".join(tried) + "\n\n" + log
-        self.finished_ok.emit(self._game_id, bool(result.get("ok")), log)
+        anti = bool(result.get("anti_cheat"))
+        msg = str(result.get("message") or "")
+        self.finished_ok.emit(self._game_id, bool(result.get("ok")), log, anti, msg)
 
 
 class UpdateWorker(QThread):
@@ -164,6 +195,14 @@ class UpdateWorker(QThread):
     def run(self) -> None:
         info = check_for_update()
         self.done.emit(info.available, info.message, info.url)
+
+
+class GeInstallWorker(QThread):
+    done = Signal(bool, str)
+
+    def run(self) -> None:
+        result = install_proton_ge()
+        self.done.emit(bool(result.get("ok")), str(result.get("message") or ""))
 
 
 class MossController(QObject):
@@ -175,6 +214,12 @@ class MossController(QObject):
     currentChanged = Signal()
     pageChanged = Signal()
     busyChanged = Signal()
+    configChanged = Signal()
+    themeChanged = Signal()
+    glassChanged = Signal()
+    runtimesChanged = Signal()
+    onboardingChanged = Signal()
+    antiCheatBlocked = Signal(str, str)
 
     def __init__(self, games: GameListModel, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -184,10 +229,21 @@ class MossController(QObject):
         self._busy = False
         self._worker: LaunchWorker | None = None
         self._upd: UpdateWorker | None = None
-        if load_config().get("check_updates", True):
+        self._ge: GeInstallWorker | None = None
+        self._cfg = load_config()
+        self._tokens = theme_tokens(str(self._cfg.get("theme") or "moss_dark"))
+        if self._cfg.get("check_updates", True):
             self._upd = UpdateWorker(self)
             self._upd.done.connect(self._on_update)
             self._upd.start()
+
+    def _reload_cfg(self) -> None:
+        self._cfg = load_config()
+        self._tokens = theme_tokens(str(self._cfg.get("theme") or "moss_dark"))
+        self.configChanged.emit()
+        self.themeChanged.emit()
+        self.glassChanged.emit()
+        self.onboardingChanged.emit()
 
     def _on_update(self, available: bool, message: str, url: str) -> None:
         if available:
@@ -217,6 +273,26 @@ class MossController(QObject):
     def dataDir(self) -> str:
         return str(data_dir())
 
+    @Property(str, notify=themeChanged)
+    def theme(self) -> str:
+        return str(self._cfg.get("theme") or "moss_dark")
+
+    @Property(bool, notify=glassChanged)
+    def glassEnabled(self) -> bool:
+        return bool(self._cfg.get("glass_enabled"))
+
+    @Property("QVariant", notify=themeChanged)
+    def themeTokens(self) -> dict:
+        return dict(self._tokens)
+
+    @Property(bool, notify=onboardingChanged)
+    def onboardingComplete(self) -> bool:
+        return bool(self._cfg.get("onboarding_complete"))
+
+    @Property("QVariant", notify=configChanged)
+    def themes(self) -> list:
+        return list_themes()
+
     @Slot(str)
     def setFilter(self, key: str) -> None:
         if key == "settings":
@@ -233,26 +309,46 @@ class MossController(QObject):
         self._games.set_search(text)
         self.libraryChanged.emit()
 
-    @Slot(str)
-    def openGame(self, game_id: str) -> None:
-        g = get_game(game_id)
-        if not g:
-            return
-        rt = detect_runtime()
+    def _game_payload(self, g) -> dict:
+        rt = detect_runtime(g)
         cover = _file_url(g.artwork.get("grid") or "")
-        self._current = {
+        info = prefix_info(g.id)
+        return {
             "gameId": g.id,
             "name": g.name,
             "cover": _file_url(g.artwork.get("hero") or g.artwork.get("grid") or "") or cover,
             "status": _status(g),
-            "runtime": (rt.kind if rt else "none"),
-            "prefix": g.prefix,
+            "runtime": (rt.name if rt else "none"),
+            "runtimeKind": (rt.kind if rt else "none"),
+            "runnerId": g.runner_id or (rt.id if rt else ""),
+            "prefix": g.prefix or info.get("path") or "",
+            "prefixExists": bool(info.get("exists")),
+            "canBackupPrefix": bool(info.get("canBackup")),
+            "canDeletePrefix": bool(info.get("canDelete")),
             "exe": g.exe,
             "verbs": "  ".join(g.verbs) if g.verbs else "—",
             "lastPlayed": g.last_played or "—",
             "letter": (g.name[:1] or "M").upper(),
             "favorite": g.favorite,
+            "workingDir": g.working_dir or "",
+            "launchArgs": g.launch_args or "",
+            "envVars": _env_to_lines(g.env_vars),
+            "windowsVersion": g.windows_version or "",
+            "dllOverrides": _env_to_lines(g.dll_overrides),
+            "dxvkEnabled": bool(g.dxvk_enabled),
+            "vkd3dEnabled": bool(g.vkd3d_enabled),
+            "gamescopeEnabled": bool(g.gamescope_enabled),
+            "mangohudEnabled": bool(g.mangohud_enabled),
+            "gamemodeEnabled": bool(g.gamemode_enabled),
+            "antiCheatHint": "",
         }
+
+    @Slot(str)
+    def openGame(self, game_id: str) -> None:
+        g = get_game(game_id)
+        if not g:
+            return
+        self._current = self._game_payload(g)
         self._page = "game"
         self.currentChanged.emit()
         self.pageChanged.emit()
@@ -272,12 +368,20 @@ class MossController(QObject):
         self._worker.finished_ok.connect(self._play_done)
         self._worker.start()
 
-    def _play_done(self, game_id: str, ok: bool, log: str) -> None:
+    def _play_done(self, game_id: str, ok: bool, log: str, anti_cheat: bool = False, message: str = "") -> None:
         self._busy = False
         self.busyChanged.emit()
         self._games.reload()
         self.libraryChanged.emit()
         self.openGame(game_id)
+        if anti_cheat:
+            hint = message or "This title uses unsupported anti-cheat under Proton/Wine."
+            if self._current.get("gameId") == game_id:
+                self._current = {**self._current, "antiCheatHint": hint}
+                self.currentChanged.emit()
+            self.logReady.emit(log)
+            self.antiCheatBlocked.emit(hint, log)
+            return
         if not ok:
             self.logReady.emit(log)
             self.error.emit("Launch finished with errors")
@@ -332,6 +436,33 @@ class MossController(QObject):
         if path:
             QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
+    @Slot(str)
+    def openGamePrefix(self, game_id: str) -> None:
+        path = open_prefix_path(game_id)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    @Slot(str, result="QVariant")
+    def prefixInfo(self, game_id: str):
+        return prefix_info(game_id)
+
+    @Slot(str)
+    def backupGamePrefix(self, game_id: str) -> None:
+        result = backup_prefix(game_id)
+        self.toast.emit(str(result.get("message") or ("Backup done" if result.get("ok") else "Backup failed")))
+        if self._current.get("gameId") == game_id:
+            self.openGame(game_id)
+
+    @Slot(str)
+    def deleteGamePrefix(self, game_id: str) -> None:
+        result = delete_prefix(game_id)
+        self.toast.emit(str(result.get("message") or ("Deleted" if result.get("ok") else "Delete failed")))
+        g = get_game(game_id)
+        if g and result.get("ok"):
+            g.prefix = str(open_prefix_path(game_id))
+            upsert(g)
+        if self._current.get("gameId") == game_id:
+            self.openGame(game_id)
+
     @Slot()
     def openDataDir(self) -> None:
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(data_dir())))
@@ -341,6 +472,11 @@ class MossController(QObject):
         QDesktopServices.openUrl(QUrl(REPO_URL))
 
     @Slot(str)
+    def openUrl(self, url: str) -> None:
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
+
+    @Slot(str)
     def loadLog(self, game_id: str) -> None:
         p = logs_dir() / f"{game_id}.log"
         text = p.read_text(encoding="utf-8", errors="replace") if p.exists() else "No log yet."
@@ -348,13 +484,226 @@ class MossController(QObject):
         self._page = "logs"
         self.pageChanged.emit()
 
+    @Slot(result="QVariant")
+    def loadSettings(self):
+        self._cfg = load_config()
+        return dict(self._cfg)
+
     @Slot("QVariant")
     def saveSettings(self, data) -> None:
         cfg = load_config()
         if isinstance(data, dict):
             cfg.update({k: data[k] for k in data})
             save_config(cfg)
+            self._reload_cfg()
             self.toast.emit("Settings saved")
+
+    @Slot(str)
+    def setTheme(self, theme_id: str) -> None:
+        cfg = load_config()
+        tid = theme_id if theme_id in THEMES else "moss_dark"
+        cfg["theme"] = tid
+        if tid in AUTO_GLASS_THEMES:
+            cfg["glass_enabled"] = True
+        save_config(cfg)
+        self._reload_cfg()
+
+    @Slot(bool)
+    def setGlassEnabled(self, enabled: bool) -> None:
+        cfg = load_config()
+        cfg["glass_enabled"] = bool(enabled)
+        save_config(cfg)
+        self._reload_cfg()
+
+    @Slot("QVariant")
+    def completeOnboarding(self, data) -> None:
+        cfg = load_config()
+        if isinstance(data, dict):
+            for key in (
+                "games_folder",
+                "preferred_runtime",
+                "steamgriddb_api_key",
+                "glass_enabled",
+                "theme",
+            ):
+                if key in data:
+                    cfg[key] = data[key]
+        cfg["onboarding_complete"] = True
+        save_config(cfg)
+        self._reload_cfg()
+        self.toast.emit("Welcome to Moss")
+
+    @Slot(result="QVariant")
+    def listRuntimes(self):
+        return [rt.as_dict() for rt in list_runtimes()]
+
+    @Slot(result="QVariant")
+    def protonGeStatus(self):
+        return proton_ge_status()
+
+    @Slot(str)
+    def setDefaultRuntime(self, runtime_id: str) -> None:
+        result = set_default_runtime(runtime_id)
+        if result:
+            self._reload_cfg()
+            self.runtimesChanged.emit()
+            self.toast.emit(f"Default runtime: {result.get('name')}")
+        else:
+            self.toast.emit("Runtime not found")
+
+    @Slot()
+    def installProtonGE(self) -> None:
+        if self._busy:
+            return
+        status = proton_ge_status()
+        if not status.get("can_install"):
+            self.toast.emit(status.get("message") or "Proton-GE install unavailable")
+            return
+        self._busy = True
+        self.busyChanged.emit()
+        self._ge = GeInstallWorker(self)
+        self._ge.done.connect(self._ge_done)
+        self._ge.start()
+
+    def _ge_done(self, ok: bool, message: str) -> None:
+        self._busy = False
+        self.busyChanged.emit()
+        self.runtimesChanged.emit()
+        self._reload_cfg()
+        self.toast.emit(message if message else ("Installed" if ok else "Install failed"))
+
+    @Slot(str, result="QVariant")
+    def getGameConfig(self, game_id: str):
+        g = get_game(game_id)
+        if not g:
+            return {}
+        rt = detect_runtime(g)
+        return {
+            "gameId": g.id,
+            "name": g.name,
+            "exe": g.exe,
+            "workingDir": g.working_dir or "",
+            "launchArgs": g.launch_args or "",
+            "envVars": "\n".join(_env_to_lines(g.env_vars)),
+            "favorite": g.favorite,
+            "runnerId": g.runner_id or "",
+            "resolvedRunnerId": (rt.id if rt else ""),
+            "windowsVersion": g.windows_version or "",
+            "dllOverrides": "\n".join(_env_to_lines(g.dll_overrides)),
+            "windowsVersions": [v for v in WINDOWS_VERSIONS],
+            "dxvkEnabled": bool(g.dxvk_enabled),
+            "vkd3dEnabled": bool(g.vkd3d_enabled),
+            "gamescopeEnabled": bool(g.gamescope_enabled),
+            "gamescopeArgs": g.gamescope_args or "",
+            "mangohudEnabled": bool(g.mangohud_enabled),
+            "gamemodeEnabled": bool(g.gamemode_enabled),
+        }
+
+    @Slot("QVariant")
+    def saveGameConfig(self, data) -> None:
+        if not isinstance(data, dict):
+            return
+        game_id = str(data.get("gameId") or "")
+        g = get_game(game_id)
+        if not g:
+            return
+        if "name" in data and str(data["name"]).strip():
+            g.name = str(data["name"]).strip()
+        if "exe" in data and str(data["exe"]).strip():
+            g.exe = str(data["exe"]).strip()
+        if "workingDir" in data:
+            g.working_dir = str(data.get("workingDir") or "").strip()
+        if "launchArgs" in data:
+            raw = str(data.get("launchArgs") or "")
+            try:
+                g.launch_args = " ".join(shlex.split(raw, posix=True)) if raw.strip() else ""
+            except ValueError:
+                g.launch_args = raw.strip()
+        if "envVars" in data:
+            env_raw = data.get("envVars")
+            if isinstance(env_raw, list):
+                g.env_vars = _lines_to_env(env_raw)
+            else:
+                g.env_vars = _lines_to_env(str(env_raw or "").splitlines())
+        if "dllOverrides" in data:
+            dll_raw = data.get("dllOverrides")
+            if isinstance(dll_raw, list):
+                g.dll_overrides = _lines_to_env(dll_raw)
+            else:
+                g.dll_overrides = _lines_to_env(str(dll_raw or "").splitlines())
+        if "runnerId" in data:
+            g.runner_id = str(data.get("runnerId") or "").strip()
+        prev_win = g.windows_version
+        if "windowsVersion" in data:
+            win = str(data.get("windowsVersion") or "").strip()
+            g.windows_version = win if win in WINDOWS_VERSIONS else ""
+        if "favorite" in data:
+            g.favorite = bool(data["favorite"])
+        if "dxvkEnabled" in data:
+            g.dxvk_enabled = bool(data["dxvkEnabled"])
+        if "vkd3dEnabled" in data:
+            g.vkd3d_enabled = bool(data["vkd3dEnabled"])
+        if "gamescopeEnabled" in data:
+            g.gamescope_enabled = bool(data["gamescopeEnabled"])
+        if "gamescopeArgs" in data:
+            g.gamescope_args = str(data.get("gamescopeArgs") or "").strip()
+        if "mangohudEnabled" in data:
+            g.mangohud_enabled = bool(data["mangohudEnabled"])
+        if "gamemodeEnabled" in data:
+            g.gamemode_enabled = bool(data["gamemodeEnabled"])
+        upsert(g)
+
+        # Apply winecfg when Windows version changes
+        if g.windows_version and g.windows_version != prev_win:
+            rt = detect_runtime(g)
+            if rt and Path(g.prefix).exists():
+                result = apply_windows_version(rt, Path(g.prefix), g.windows_version)
+                if result.get("message"):
+                    self.toast.emit(str(result["message"]))
+
+        self._games.reload()
+        self.libraryChanged.emit()
+        if self._current.get("gameId") == game_id:
+            self.openGame(game_id)
+        self.toast.emit("Game settings saved")
+
+    @Slot(result="QVariant")
+    def hostTools(self):
+        return host_tools_summary()
+
+    @Slot(str, result="QVariant")
+    def listWinetricksVerbs(self, game_id: str):
+        g = get_game(game_id)
+        installed = list(g.verbs) if g else []
+        return list_common_verbs(installed)
+
+    @Slot(str, str)
+    def runWinetricksVerb(self, game_id: str, verb: str) -> None:
+        g = get_game(game_id)
+        if not g or not verb:
+            self.toast.emit("No game or verb selected")
+            return
+        rt = detect_runtime(g)
+        if rt is None:
+            self.toast.emit("No Proton/Wine runtime found")
+            return
+        prefix = Path(g.prefix)
+        if not prefix.exists():
+            from moss.prefix import create_prefix
+
+            prefix = create_prefix(g.id, rt)
+            g.prefix = str(prefix)
+        ok = run_verb(rt, prefix, verb)
+        if ok:
+            if verb not in g.verbs:
+                g.verbs.append(verb)
+                upsert(g)
+            self.toast.emit(f"Installed {verb}")
+            self._games.reload()
+            if self._current.get("gameId") == game_id:
+                self.openGame(game_id)
+        else:
+            self.toast.emit(f"Failed to run winetricks {verb} (is winetricks installed?)")
 
     @Slot(str, result=str)
     def localPath(self, url: str) -> str:
