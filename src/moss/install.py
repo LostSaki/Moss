@@ -8,7 +8,7 @@ from moss.prefix import create_prefix
 from moss.runtime import detect_runtime
 from moss.scan import display_name_from_path, pick_main_exe, scan_folder, slug_id
 from moss.shortcuts import write_desktop, write_steam_shortcut
-from moss.store import Game, upsert
+from moss.store import Game, load_config, upsert
 from moss.launch import run_once
 
 
@@ -35,6 +35,14 @@ def find_installed_exe(prefix: Path, hint: str = "") -> Path | None:
     return candidates[0].path if candidates else None
 
 
+def _finish_add(game: Game, name: str) -> Game:
+    fetch_artwork(game, name)
+    write_desktop(game)
+    if load_config().get("create_steam_shortcuts", True):
+        write_steam_shortcut(game)
+    return game
+
+
 def add_from_exe(exe: Path, name: str | None = None) -> Game:
     exe = Path(exe).resolve()
     name = name or display_name_from_path(exe)
@@ -45,10 +53,7 @@ def add_from_exe(exe: Path, name: str | None = None) -> Game:
     upsert(game)
     if runtime:
         ensure_components(game, runtime)
-    fetch_artwork(game, name)
-    write_desktop(game)
-    write_steam_shortcut(game)
-    return game
+    return _finish_add(game, name)
 
 
 def add_from_folder(folder: Path) -> list[Game]:
@@ -81,7 +86,4 @@ def install_setup(setup_exe: Path, name: str) -> Game:
     if installed:
         game.exe = str(installed)
         upsert(game)
-    fetch_artwork(game, name)
-    write_desktop(game)
-    write_steam_shortcut(game)
-    return game
+    return _finish_add(game, name)

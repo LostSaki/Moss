@@ -6,4 +6,7 @@ venv/
 dist/
 build/
 *.egg-info/
-.moss-test/
+.git/
+dist/
+build/
+*.spec.bak

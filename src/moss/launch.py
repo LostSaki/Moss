@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 from moss.components import ensure_components, run_verb
@@ -62,6 +63,7 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
             "tried": [],
         }
     game.prefix = str(create_prefix(game.id, runtime))
+    game.last_played = datetime.now(timezone.utc).isoformat(timespec="seconds")
     upsert(game)
     ensure_components(game, runtime)
 
