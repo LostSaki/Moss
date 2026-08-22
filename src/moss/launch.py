@@ -232,32 +232,45 @@ def apply_recipe_by_id(game: Game, recipe_id: str) -> dict[str, Any]:
     return {"ok": note.startswith("applied"), "message": note, "verb": match.verb}
 
 
-def launch_game(game: Game, auto_fix: bool = True) -> dict:
+def launch_game(game: Game, auto_fix: bool = True, progress=None) -> dict:
+    def _prog(msg: str) -> None:
+        if progress:
+            progress(msg)
+
     game = apply_profile(game)
     runtime = detect_runtime(game)
+    _prog("Preparing Wine prefix…")
     create_prefix(game.id, runtime)
     if runtime is None:
+        try:
+            from moss.errors import record_error
+
+            record_error("launch", "No Proton or Wine found.", game_id=game.id)
+        except Exception:
+            pass
         return {
             "ok": False,
             "log": "No Proton or Wine found.",
             "tried": [],
             "recipe_id": "",
             "anti_cheat": False,
-            "message": "No Proton or Wine found.",
+            "message": "No Proton or Wine found. Open Settings → Runtimes.",
             "can_fix": False,
             "pid": None,
             "durationSec": 0,
+            "suggestions": [],
         }
     game.prefix = str(create_prefix(game.id, runtime))
-    # Persist last played on the stored game id
-    stored = game
     from moss.store import get_game
 
     real = get_game(game.id) or game
     real.last_played = datetime.now(timezone.utc).isoformat(timespec="seconds")
     real.prefix = game.prefix
     upsert(real)
-    ensure_components(real, runtime)
+    _prog("Installing Windows components…")
+    real, comp_meta = ensure_components(real, runtime, progress=progress)
+    if not comp_meta.get("winetricks") and comp_meta.get("skipped"):
+        _prog(str(comp_meta.get("message") or "winetricks missing"))
     game.prefix = real.prefix
     game.verbs = real.verbs
 
@@ -269,6 +282,7 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
     anti_cheat = False
     stop_message = ""
     can_fix = False
+    _prog("Launching…")
     code, log, warnings, meta = run_once(game, runtime)
     tried.extend(warnings)
     retries = 0
@@ -292,7 +306,6 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
         retries += 1
         code, log, _, meta = run_once(game, runtime)
 
-    # If we exited with a winetricks-able match that wasn't applied (report path), can_fix false
     if not can_fix and recipe_id and not anti_cheat:
         recipes = {r.get("id"): r for r in load_recipes()}
         r = recipes.get(recipe_id) or {}
@@ -304,6 +317,39 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
         stop_message = "Moss could not identify a safe automatic fix." if not recipe_id else stop_message
 
     tail = "\n".join(log.splitlines()[-80:])
+    suggestions: list[dict] = []
+    try:
+        from moss.store import load_config
+        from moss.suggest import build_context, save_suggest_context, suggest_fixes
+
+        ctx = build_context(
+            game_id=game.id,
+            game_name=game.name,
+            exe=game.exe,
+            runtime_name=runtime.name,
+            log=log,
+            verbs=list(game.verbs or []),
+            recipe_id=recipe_id,
+        )
+        save_suggest_context(ctx)
+        use_ai = bool(load_config().get("ai_suggestions_enabled"))
+        suggestions = [s.as_dict() for s in suggest_fixes(ctx, use_ai=use_ai)]
+    except Exception:
+        suggestions = []
+
+    if code != 0:
+        try:
+            from moss.errors import record_error
+
+            record_error(
+                "launch",
+                stop_message or f"Launch exited with code {code}",
+                game_id=game.id,
+                detail=tail,
+            )
+        except Exception:
+            pass
+
     return {
         "ok": code == 0,
         "code": code,
@@ -317,4 +363,6 @@ def launch_game(game: Game, auto_fix: bool = True) -> dict:
         "can_fix": can_fix and not anti_cheat,
         "pid": meta.get("pid"),
         "durationSec": meta.get("durationSec", 0),
+        "suggestions": suggestions,
+        "components": comp_meta,
     }

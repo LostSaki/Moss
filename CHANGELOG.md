@@ -1,28 +1,29 @@
 # Changelog
 
-## 0.2.2
+## 0.2.8 (pre-release)
 
 ### Added
-- **Scan library** in the sidebar (above Add Game), Settings, empty library, and onboarding
-- Multi-game library discovery with an Import dialog to pick which titles to add
-- **Add this game folder…** for importing a single specific game without scanning siblings
-- Linux packages: AppImage, `.deb`, Flatpak bundle, plus raw `Moss-linux-x86_64`
-- Windows **Setup** installer (`Moss-Setup-0.2.2.exe`) alongside the portable exe
-- Steam Deck / desktop install notes in the README
-- GitHub Release notes and this changelog
+- Curated **games_db.yaml** (game names → required winetricks components) with auto-install on import/Play
+- Expanded default components: `vcrun2019`, `vcrun2022`, `d3dcompiler_47`
+- Progress toasts for prefix prep and component installs; clearer missing-winetricks message
+- Update **Stable / Beta** channels; portable **Install update** + **Rollback**
+- Settings → **Support**: error ring, export support pack, GitHub Issues link
+- Rule-based launch suggestions + `SuggestContext` hooks for the 0.3.0 AI advisor
+- Experimental AI toggle (endpoint/key) ready for 0.3.0
+- Quieter wineboot; Change EXE hint when the picked binary looks like a launcher
 
 ### Fixed
-- Saving a games folder no longer did nothing — Scan actually imports Windows `.exe` titles
-- Honest feedback when a folder has zero suitable games (no fake “Games added”)
+- Silent winetricks failures no longer look like “nothing happened”
+- Play with no Proton/Wine routes to Settings → Runtimes
 
-### Packaging
-- CI builds and uploads AppImage, deb, Flatpak, Linux binary, Windows Setup, and portable exe on `v*` tags
+## 0.2.2
+
+- Scan library UX, multi/single folder import, AppImage/deb/Flatpak/Windows Setup packaging
 
 ## 0.2.1
 
-- Settings update status (Check now / up-to-date / offline)
-- Quiet shell motion (page fade, toast, dialogs, game cards)
+- Settings update status; quiet shell motion
 
 ## 0.2.0
 
-- Themes, glass surfaces, onboarding, runners, per-game launch tools
+- Themes, glass, onboarding, runners, per-game launch tools

@@ -36,10 +36,24 @@ from moss.runtime import (
     list_runtimes,
     proton_ge_status,
     set_default_runtime,
+    which_winetricks,
 )
 from moss.store import WINDOWS_VERSIONS, delete_game, get_game, load_config, load_library, save_config, upsert
 from moss.themes import AUTO_GLASS_THEMES, THEMES, list_themes, theme_tokens
-from moss.updatecheck import REPO_URL, check_for_update
+from moss.errors import clear_errors, list_errors, record_error
+from moss.gamesdb import match_game
+from moss.supportpack import default_support_pack_path, export_support_pack
+from moss.suggest import load_suggest_context, suggest_fixes
+from moss.updatecheck import REPO_URL
+from moss.updater import (
+    apply_staged_update,
+    can_self_update,
+    check_for_update,
+    download_and_stage_update,
+    previous_backup_path,
+    rollback_previous,
+    try_finish_update,
+)
 from moss.wrappers import host_tools_summary
 
 def _file_url(path: str) -> str:
@@ -178,6 +192,7 @@ class GameListModel(QAbstractListModel):
 
 class LaunchWorker(QThread):
     finished_ok = Signal(str, bool, str, bool, str, str, bool, object, int)
+    progress = Signal(str)
 
     def __init__(self, game_id: str, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -188,7 +203,7 @@ class LaunchWorker(QThread):
         if not game:
             self.finished_ok.emit(self._game_id, False, "Unknown game", False, "", "", False, None, 0)
             return
-        result = launch_game(game)
+        result = launch_game(game, progress=lambda msg: self.progress.emit(str(msg)))
         log = result.get("log") or ""
         tried = result.get("tried") or []
         if tried:
@@ -209,8 +224,12 @@ class LaunchWorker(QThread):
 class UpdateWorker(QThread):
     done = Signal(bool, str, str, str, str, bool)
 
+    def __init__(self, channel: str = "stable", parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._channel = channel or "stable"
+
     def run(self) -> None:
-        info = check_for_update()
+        info = check_for_update(channel=self._channel)
         self.done.emit(
             bool(info.available),
             str(info.current or __version__),
@@ -286,6 +305,12 @@ class MossController(QObject):
         }
         self._cfg = load_config()
         self._tokens = theme_tokens(str(self._cfg.get("theme") or "moss_dark"))
+        finish = try_finish_update()
+        if finish and finish.get("message"):
+            # Deferred toast after UI up
+            self._pending_toast = str(finish.get("message"))
+        else:
+            self._pending_toast = ""
         if self._cfg.get("check_updates", True):
             self.checkUpdatesNow()
 
@@ -325,7 +350,8 @@ class MossController(QObject):
             return
         self._checking_updates = True
         self.updateStatusChanged.emit()
-        self._upd = UpdateWorker(self)
+        channel = str(self._cfg.get("update_channel") or "stable")
+        self._upd = UpdateWorker(channel, self)
         self._upd.done.connect(self._on_update_done)
         self._upd.start()
 
@@ -423,7 +449,7 @@ class MossController(QObject):
         rt = detect_runtime(g)
         cover = _file_url(g.artwork.get("grid") or "")
         info = prefix_info(g.id)
-        return {
+        mapping = {
             "gameId": g.id,
             "name": g.name,
             "cover": _file_url(g.artwork.get("hero") or g.artwork.get("grid") or "") or cover,
@@ -451,7 +477,21 @@ class MossController(QObject):
             "mangohudEnabled": bool(g.mangohud_enabled),
             "gamemodeEnabled": bool(g.gamemode_enabled),
             "antiCheatHint": "",
+            "dbNotes": "",
+            "dbId": "",
+            "weakExe": False,
+            "winetricksOk": which_winetricks() is not None,
         }
+        entry = match_game(g.name, folder_name=Path(g.exe).parent.name if g.exe else "")
+        if entry:
+            mapping["dbId"] = entry.id
+            mapping["dbNotes"] = entry.notes or ""
+            if entry.anti_cheat and entry.anti_cheat != "none":
+                mapping["antiCheatHint"] = f"Games DB: {entry.anti_cheat.upper()} may be unsupported."
+        stem = Path(g.exe).stem.lower() if g.exe else ""
+        if any(x in stem for x in ("launcher", "crash", "redist", "setup", "uninstall", "helper")):
+            mapping["weakExe"] = True
+        return mapping
 
     @Slot(str)
     def openGame(self, game_id: str) -> None:
@@ -472,11 +512,21 @@ class MossController(QObject):
     def play(self, game_id: str) -> None:
         if self._busy:
             return
+        g = get_game(game_id)
+        if not g:
+            self.toast.emit("Unknown game")
+            return
+        if detect_runtime(g) is None:
+            self.toast.emit("No Proton or Wine found — open Settings → Runtimes")
+            self._page = "settings"
+            self.pageChanged.emit()
+            return
         self._busy = True
         self._running = True
         self.busyChanged.emit()
         self.runningChanged.emit()
         self._worker = LaunchWorker(game_id, self)
+        self._worker.progress.connect(self.toast.emit)
         self._worker.finished_ok.connect(self._play_done)
         self._worker.start()
 
@@ -994,3 +1044,76 @@ class MossController(QObject):
         if not path:
             return ""
         return QUrl.fromLocalFile(str(Path(path))).toString()
+
+    @Slot(result=bool)
+    def canSelfUpdate(self) -> bool:
+        return can_self_update()
+
+    @Slot(result=bool)
+    def canRollback(self) -> bool:
+        return previous_backup_path() is not None
+
+    @Slot()
+    def installUpdate(self) -> None:
+        channel = str(self._cfg.get("update_channel") or "stable")
+        self.toast.emit("Downloading update…")
+        result = download_and_stage_update(channel)
+        if not result.get("ok"):
+            msg = str(result.get("message") or "Download failed")
+            self.toast.emit(msg)
+            record_error("update", msg)
+            url = result.get("url")
+            if url:
+                QDesktopServices.openUrl(QUrl(str(url)))
+            return
+        apply = apply_staged_update()
+        self.toast.emit(str(apply.get("message") or result.get("message") or "Update ready"))
+        if not apply.get("ok"):
+            record_error("update", str(apply.get("message") or "Apply failed"))
+
+    @Slot()
+    def rollbackUpdate(self) -> None:
+        result = rollback_previous()
+        self.toast.emit(str(result.get("message") or ("Rollback ready" if result.get("ok") else "Rollback failed")))
+        if not result.get("ok"):
+            record_error("update", str(result.get("message") or "Rollback failed"))
+
+    @Slot(result="QVariant")
+    def listErrors(self):
+        return list_errors()
+
+    @Slot()
+    def clearErrorLog(self) -> None:
+        clear_errors()
+        self.toast.emit("Error log cleared")
+
+    @Slot(str, result="QVariant")
+    def exportSupportPack(self, dest_dir: str = "") -> dict:
+        base = Path(dest_dir) if dest_dir else default_support_pack_path()
+        result = export_support_pack(base, game_id=str(self._current.get("gameId") or ""))
+        self.toast.emit(str(result.get("message") or ("Saved" if result.get("ok") else "Export failed")))
+        return result
+
+    @Slot(result="QVariant")
+    def lastSuggestions(self):
+        ctx = load_suggest_context()
+        if not ctx:
+            return []
+        use_ai = bool(self._cfg.get("ai_suggestions_enabled"))
+        return [s.as_dict() for s in suggest_fixes(ctx, use_ai=use_ai)]
+
+    @Slot()
+    def openGithubIssues(self) -> None:
+        QDesktopServices.openUrl(QUrl(f"{REPO_URL}/issues/new"))
+
+    @Slot(result=bool)
+    def winetricksAvailable(self) -> bool:
+        return which_winetricks() is not None
+
+    @Slot()
+    def flushPendingToast(self) -> None:
+        msg = getattr(self, "_pending_toast", "") or ""
+        self._pending_toast = ""
+        if msg:
+            self.toast.emit(msg)
+

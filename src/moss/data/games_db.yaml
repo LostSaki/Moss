@@ -1,0 +1,105 @@
+games:
+  - id: hollow-knight
+    names: ["Hollow Knight", "hollow_knight", "hollow-knight"]
+    steam_appid: 367520
+    required_verbs: [vcrun2019, d3dcompiler_47]
+    notes: "Unity title; Visual C++ 2015–2019 usually enough."
+    anti_cheat: none
+
+  - id: celeste
+    names: ["Celeste", "celeste"]
+    steam_appid: 504230
+    required_verbs: [vcrun2019, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: hades
+    names: ["Hades", "hades"]
+    steam_appid: 1145360
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: stardew-valley
+    names: ["Stardew Valley", "stardew_valley", "stardew-valley"]
+    steam_appid: 413150
+    required_verbs: [vcrun2019, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: valheim
+    names: ["Valheim", "valheim"]
+    steam_appid: 892970
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: cyberpunk-2077
+    names: ["Cyberpunk 2077", "cyberpunk2077", "cyberpunk_2077", "Cyberpunk2077"]
+    steam_appid: 1091500
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47, dotnet48]
+    notes: "Heavy title; ensure Proton-GE and up-to-date GPU drivers."
+    anti_cheat: none
+
+  - id: elden-ring
+    names: ["ELDEN RING", "Elden Ring", "elden_ring", "elden-ring"]
+    steam_appid: 1245620
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47]
+    notes: "Easy Anti-Cheat may block online; offline/modded may still fail under Wine."
+    anti_cheat: eac
+
+  - id: witcher-3
+    names: ["The Witcher 3", "Witcher 3", "witcher3", "The Witcher 3 Wild Hunt"]
+    steam_appid: 292030
+    required_verbs: [vcrun2019, d3dcompiler_47, d3dx9]
+    notes: ""
+    anti_cheat: none
+
+  - id: gta-v
+    names: ["Grand Theft Auto V", "GTA V", "GTA5", "gtav"]
+    steam_appid: 271590
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47, d3dx9]
+    notes: "Rockstar launcher / online often problematic under Proton."
+    anti_cheat: none
+
+  - id: doom-eternal
+    names: ["DOOM Eternal", "Doom Eternal", "doometernal"]
+    steam_appid: 782330
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47]
+    notes: ""
+    anti_cheat: battleye
+
+  - id: minecraft-launcher
+    names: ["Minecraft", "Minecraft Launcher", "MinecraftLauncher"]
+    steam_appid: 0
+    required_verbs: [vcrun2019, vcrun2022, dotnet48, d3dcompiler_47]
+    notes: "Prefer native Linux Minecraft when possible."
+    anti_cheat: none
+
+  - id: among-us
+    names: ["Among Us", "among_us", "among-us"]
+    steam_appid: 945360
+    required_verbs: [vcrun2019, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: terraria
+    names: ["Terraria", "terraria"]
+    steam_appid: 105600
+    required_verbs: [vcrun2019, d3dcompiler_47]
+    notes: ""
+    anti_cheat: none
+
+  - id: fallout-new-vegas
+    names: ["Fallout New Vegas", "Fallout: New Vegas", "FalloutNV", "fnv"]
+    steam_appid: 22380
+    required_verbs: [vcrun2019, d3dcompiler_47, d3dx9, xact]
+    notes: ""
+    anti_cheat: none
+
+  - id: skyrim-se
+    names: ["Skyrim Special Edition", "The Elder Scrolls V Skyrim Special Edition", "SkyrimSE"]
+    steam_appid: 489830
+    required_verbs: [vcrun2019, vcrun2022, d3dcompiler_47, d3dx9]
+    notes: ""
+    anti_cheat: none

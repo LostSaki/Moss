@@ -9,6 +9,7 @@ a = Analysis(
     binaries=pyside_binaries,
     datas=[
         ("src/moss/recipes.yaml", "moss"),
+        ("src/moss/data/games_db.yaml", "moss/data"),
         ("src/moss/ui/qml", "moss/ui/qml"),
         *pyside_datas,
     ],

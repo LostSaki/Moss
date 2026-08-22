@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moss"
-version = "0.2.2"
+version = "0.2.8"
 description = "Native Linux/SteamOS app for Windows games: Proton/Wine prefixes, missing-DLL fixes, Steam artwork, and setup.exe installs."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,6 +27,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 moss = [
     "recipes.yaml",
+    "data/*.yaml",
     "ui/qml/*.qml",
     "ui/qml/qmldir",
     "ui/qml/components/*.qml",

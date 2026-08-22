@@ -34,8 +34,13 @@ Item {
             steamgriddb_api_key: apiKey.text,
             create_steam_shortcuts: steamOn.checked,
             check_updates: updatesOn.checked,
+            update_channel: channelChoice.currentValue,
             theme: themeChoice.currentValue,
-            glass_enabled: glassOn.checked
+            glass_enabled: glassOn.checked,
+            ai_suggestions_enabled: aiOn.checked,
+            ai_endpoint: aiEndpoint.text,
+            ai_api_key: aiKey.text,
+            ai_model: aiModel.text
         })
         reload()
     }
@@ -65,6 +70,7 @@ Item {
                     { id: "artwork", label: "Artwork" },
                     { id: "steam", label: "Steam" },
                     { id: "updates", label: "Updates" },
+                    { id: "support", label: "Support" },
                     { id: "advanced", label: "Advanced" },
                     { id: "library", label: "Library", soon: true },
                     { id: "controllers", label: "Controllers", soon: true },
@@ -381,7 +387,7 @@ Item {
                 MossSection {
                     visible: root.section === "updates"
                     title: "Updates"
-                    description: "Moss release checks against GitHub."
+                    description: "Stable tracks GitHub latest; Beta includes pre-releases such as 0.2.8."
                     Column {
                         width: parent.width
                         spacing: Theme.space16
@@ -403,6 +409,22 @@ Item {
                             }
                         }
 
+                        Text { text: "Channel"; color: Theme.textMuted; font.pixelSize: Theme.fontCaption }
+                        ComboBox {
+                            id: channelChoice
+                            width: Math.min(280, parent.width)
+                            textRole: "label"
+                            valueRole: "id"
+                            model: [
+                                { id: "stable", label: "Stable" },
+                                { id: "beta", label: "Beta (pre-releases)" }
+                            ]
+                            Component.onCompleted: {
+                                var want = cfg.update_channel || "stable"
+                                currentIndex = want === "beta" ? 1 : 0
+                            }
+                        }
+
                         MossToggle {
                             id: updatesOn
                             checked: cfg.check_updates !== false
@@ -415,18 +437,41 @@ Item {
                                 id: checkNowBtn
                                 text: moss.checkingUpdates ? "Checking…" : "Check now"
                                 enabled: !moss.checkingUpdates
-                                onClicked: moss.checkUpdatesNow()
+                                onClicked: {
+                                    saveCore()
+                                    moss.checkUpdatesNow()
+                                }
                             }
                             MossSecondaryButton {
                                 visible: !!(moss.updateStatus.available)
                                 text: "View release"
                                 onClicked: moss.openUrl(moss.updateStatus.url || moss.repoUrl)
                             }
+                            MossButton {
+                                visible: !!(moss.updateStatus.available) && moss.canSelfUpdate()
+                                text: "Install update"
+                                onClicked: moss.installUpdate()
+                            }
                             MossSecondaryButton {
-                                visible: !!(moss.updateStatus.available)
+                                visible: !!(moss.updateStatus.available) && !moss.canSelfUpdate()
                                 text: "Download"
                                 onClicked: moss.openUrl(moss.updateStatus.url || moss.repoUrl)
                             }
+                            MossSecondaryButton {
+                                visible: moss.canRollback()
+                                text: "Rollback"
+                                onClicked: moss.rollbackUpdate()
+                            }
+                        }
+
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: moss.canSelfUpdate()
+                                  ? "Portable builds can install and roll back in-app. Deb/Flatpak use your package manager."
+                                  : "This install cannot self-update; use Download to open the release page."
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontCaption
                         }
 
                         Text {
@@ -461,6 +506,102 @@ Item {
                                     easing.type: Easing.OutCubic
                                 }
                             }
+                        }
+                    }
+                }
+
+                // SUPPORT / DIAGNOSTICS
+                MossSection {
+                    visible: root.section === "support"
+                    title: "Support"
+                    description: "Errors, debug packs for developers, and upcoming smart suggestions."
+                    Column {
+                        width: parent.width
+                        spacing: Theme.space12
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: moss.winetricksAvailable()
+                                  ? "winetricks detected — Windows components can auto-install."
+                                  : "winetricks not found — install it so Moss can auto-install Visual C++ and related components."
+                            color: Theme.textSecondary
+                            font.pixelSize: Theme.fontSecondary
+                        }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: "Smart AI suggestions ship in 0.3.0. Rule-based suggestions already run after launch failures."
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontCaption
+                        }
+                        MossToggle {
+                            id: aiOn
+                            checked: !!cfg.ai_suggestions_enabled
+                            text: "Enable experimental AI suggestions (0.3.0)"
+                        }
+                        TextField {
+                            id: aiEndpoint
+                            width: parent.width
+                            visible: aiOn.checked
+                            text: cfg.ai_endpoint || ""
+                            placeholderText: "OpenAI-compatible endpoint (e.g. https://api.openai.com/v1)"
+                            color: Theme.textPrimary
+                            background: Rectangle { radius: Theme.radiusSmall; color: fieldBg(); border.width: 1; border.color: Theme.border }
+                        }
+                        TextField {
+                            id: aiKey
+                            width: parent.width
+                            visible: aiOn.checked
+                            text: cfg.ai_api_key || ""
+                            placeholderText: "API key (stored locally, redacted in reports)"
+                            echoMode: TextInput.Password
+                            color: Theme.textPrimary
+                            background: Rectangle { radius: Theme.radiusSmall; color: fieldBg(); border.width: 1; border.color: Theme.border }
+                        }
+                        TextField {
+                            id: aiModel
+                            width: Math.min(280, parent.width)
+                            visible: aiOn.checked
+                            text: cfg.ai_model || "gpt-4o-mini"
+                            placeholderText: "Model id"
+                            color: Theme.textPrimary
+                            background: Rectangle { radius: Theme.radiusSmall; color: fieldBg(); border.width: 1; border.color: Theme.border }
+                        }
+                        Row {
+                            spacing: Theme.space8
+                            MossButton {
+                                text: "Export support pack"
+                                onClicked: moss.exportSupportPack("")
+                            }
+                            MossSecondaryButton {
+                                text: "Copy debug report"
+                                onClicked: moss.copyDebugReport(moss.current.gameId || "")
+                            }
+                            MossSecondaryButton {
+                                text: "Open GitHub Issues"
+                                onClicked: moss.openGithubIssues()
+                            }
+                            MossSecondaryButton {
+                                text: "Clear errors"
+                                onClicked: moss.clearErrorLog()
+                            }
+                        }
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: {
+                                var errs = moss.listErrors() || []
+                                if (!errs.length)
+                                    return "No recent errors recorded."
+                                var lines = []
+                                for (var i = 0; i < Math.min(8, errs.length); i++) {
+                                    var e = errs[i]
+                                    lines.push((e.ts || "") + " · " + (e.kind || "") + " — " + (e.message || ""))
+                                }
+                                return lines.join("\n")
+                            }
+                            color: Theme.textMuted
+                            font.pixelSize: Theme.fontCaption
                         }
                     }
                 }
@@ -532,6 +673,7 @@ Item {
                     visible: root.section === "general" || root.section === "appearance"
                              || root.section === "runtimes" || root.section === "artwork"
                              || root.section === "steam" || root.section === "updates"
+                             || root.section === "support"
                     text: "Save"
                     onClicked: saveCore()
                 }

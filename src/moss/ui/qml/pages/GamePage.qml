@@ -153,6 +153,34 @@ Item {
         }
         Item { visible: !!(moss.current.antiCheatHint); width: 1; height: Theme.space16 }
 
+        Column {
+            width: parent.width
+            spacing: Theme.space4
+            visible: !!(moss.current.weakExe) || !!(moss.current.dbNotes)
+            Text {
+                visible: !!(moss.current.weakExe)
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "This executable looks like a launcher/helper. Use Configure → Change EXE if the game won't start."
+                color: Theme.warning
+                font.pixelSize: Theme.fontSecondary
+            }
+            Text {
+                visible: !!(moss.current.dbNotes)
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "Games DB: " + (moss.current.dbNotes || "")
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontCaption
+            }
+            MossSecondaryButton {
+                visible: !!(moss.current.weakExe)
+                text: "Configure / Change EXE…"
+                onClicked: root.editConfig()
+            }
+        }
+        Item { visible: !!(moss.current.weakExe) || !!(moss.current.dbNotes); width: 1; height: Theme.space16 }
+
         Repeater {
             model: [
                 { k: "Status", v: moss.current.status || "" },
