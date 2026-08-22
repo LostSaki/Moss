@@ -530,14 +530,14 @@ Item {
                         Text {
                             width: parent.width
                             wrapMode: Text.WordWrap
-                            text: "AI log advisor is available when enabled below. Logs are redacted (basenames only) before any network call."
+                            text: "AI log advisor is experimental and planned for a future 0.3.x. Rule-based suggestions already run after launch failures. Logs are redacted before any network call."
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontCaption
                         }
                         MossToggle {
                             id: aiOn
                             checked: !!cfg.ai_suggestions_enabled
-                            text: "Enable AI suggestions (opt-in)"
+                            text: "Enable experimental AI suggestions (future 0.3.x)"
                         }
                         TextField {
                             id: aiEndpoint

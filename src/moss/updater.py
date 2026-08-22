@@ -9,9 +9,17 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from moss import __version__
 from moss.paths import data_dir, ensure_dirs
-from moss.updatecheck import GITHUB_API, UpdateInfo, _fmt_ver, _get, _newer
+from moss.updatecheck import (
+    GITHUB_API,
+    UpdateInfo,
+    _DEFAULT_HEADERS,
+    _get,
+    _get_list,
+    _request_json,
+    _ssl_context,
+    check_for_update,
+)
 
 
 def updates_dir() -> Path:
@@ -79,79 +87,6 @@ def _pick_asset(assets: list[dict], *, channel_hint: str = "") -> dict | None:
     return scored[0][1]
 
 
-def _get_list(url: str) -> list | None:
-    req = urllib.request.Request(url, headers={"User-Agent": "Moss-UpdateCheck"})
-    try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data if isinstance(data, list) else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
-        return None
-
-
-def check_for_update(current: str | None = None, channel: str = "stable") -> UpdateInfo:
-    """Stable = latest non-prerelease; beta = newest release including prereleases."""
-    current = current or __version__
-    cur_label = _fmt_ver(current)
-    channel = (channel or "stable").lower()
-    if channel == "beta":
-        data = _get_list(f"{GITHUB_API}/releases?per_page=15")
-        if data is None:
-            return UpdateInfo(
-                available=False,
-                current=current,
-                message="Couldn't reach GitHub · try again later",
-                ok=False,
-            )
-        if not data:
-            return UpdateInfo(
-                available=False,
-                current=current,
-                message=f"You're up to date · {cur_label}",
-                ok=True,
-            )
-        rel = data[0]
-    else:
-        data = _get(f"{GITHUB_API}/releases/latest")
-        if data is None:
-            return UpdateInfo(
-                available=False,
-                current=current,
-                message="Couldn't reach GitHub · try again later",
-                ok=False,
-            )
-        rel = data
-
-    tag = str(rel.get("tag_name") or "")
-    url = str(rel.get("html_url") or "")
-    if not tag:
-        return UpdateInfo(
-            available=False,
-            current=current,
-            message="Couldn't reach GitHub · try again later",
-            ok=False,
-        )
-    pre = bool(rel.get("prerelease"))
-    if _newer(tag, current):
-        ch = " (pre-release)" if pre else ""
-        return UpdateInfo(
-            available=True,
-            latest=tag,
-            current=current,
-            url=url,
-            message=f"Update available · {_fmt_ver(tag)}{ch} (you have {cur_label})",
-            ok=True,
-        )
-    return UpdateInfo(
-        available=False,
-        latest=tag,
-        current=current,
-        url=url,
-        message=f"You're up to date · {cur_label}",
-        ok=True,
-    )
-
-
 def download_and_stage_update(channel: str = "stable") -> dict[str, Any]:
     """Download matching asset into updates/download. Does not replace yet."""
     if not can_self_update():
@@ -163,11 +98,9 @@ def download_and_stage_update(channel: str = "stable") -> dict[str, Any]:
     if not info.available or not info.latest:
         return {"ok": False, "message": info.message or "No update available."}
 
-    # Fetch full release for assets
     tag = info.latest
     rel = _get(f"{GITHUB_API}/releases/tags/{tag}")
     if rel is None:
-        # beta might need list scan
         rows = _get_list(f"{GITHUB_API}/releases?per_page=20") or []
         rel = next((r for r in rows if str(r.get("tag_name")) == tag), None)
     if not rel:
@@ -185,8 +118,10 @@ def download_and_stage_update(channel: str = "stable") -> dict[str, Any]:
         return {"ok": False, "message": "Asset URL missing."}
     dest = updates_dir() / "download" / name
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Moss-UpdateCheck"})
-        with urllib.request.urlopen(req, timeout=300) as resp, open(dest, "wb") as out:
+        req = urllib.request.Request(url, headers=dict(_DEFAULT_HEADERS))
+        with urllib.request.urlopen(req, timeout=300, context=_ssl_context()) as resp, open(
+            dest, "wb"
+        ) as out:
             shutil.copyfileobj(resp, out)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
         return {"ok": False, "message": f"Download failed: {exc}"}
@@ -216,13 +151,11 @@ def apply_staged_update() -> dict[str, Any]:
         if bak.exists():
             bak.unlink()
         shutil.copy2(exe, bak)
-        # On Windows, replacing running exe is hard — write beside and instruct restart via rename script
         tmp = exe.with_suffix(exe.suffix + ".new")
         if tmp.exists():
             tmp.unlink()
         shutil.copy2(staged, tmp)
         if sys.platform.startswith("win"):
-            # Leave .new next to exe; user restarts — apply on next launch via try_finish_update
             (updates_dir() / "apply_on_restart").write_text(str(tmp), encoding="utf-8")
             return {
                 "ok": True,
@@ -230,7 +163,6 @@ def apply_staged_update() -> dict[str, Any]:
                 "restart": True,
                 "tag": meta.get("tag"),
             }
-        # POSIX: replace atomically when possible
         os.replace(tmp, exe)
         try:
             exe.chmod(0o755)
@@ -289,3 +221,18 @@ def rollback_previous() -> dict[str, Any]:
         return {"ok": True, "message": "Restored previous version. Restart Moss.", "restart": True}
     except OSError as exc:
         return {"ok": False, "message": f"Rollback failed: {exc}"}
+
+
+# Re-export for callers / tests
+__all__ = [
+    "UpdateInfo",
+    "apply_staged_update",
+    "can_self_update",
+    "check_for_update",
+    "download_and_stage_update",
+    "previous_backup_path",
+    "rollback_previous",
+    "try_finish_update",
+    "updates_dir",
+    "_request_json",
+]
