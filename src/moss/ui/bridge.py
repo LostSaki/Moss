@@ -44,11 +44,10 @@ from moss.errors import clear_errors, list_errors, record_error
 from moss.gamesdb import match_game
 from moss.supportpack import default_support_pack_path, export_support_pack
 from moss.suggest import load_suggest_context, suggest_fixes
-from moss.updatecheck import REPO_URL
+from moss.updatecheck import REPO_URL, check_for_update
 from moss.updater import (
     apply_staged_update,
     can_self_update,
-    check_for_update,
     download_and_stage_update,
     previous_backup_path,
     rollback_previous,

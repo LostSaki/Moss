@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, collect_data_files
 
 pyside_datas, pyside_binaries, pyside_hidden = collect_all("PySide6")
+certifi_datas = collect_data_files("certifi")
 
 a = Analysis(
     ["src/moss/__main__.py"],
@@ -12,6 +13,7 @@ a = Analysis(
         ("src/moss/data/games_db.yaml", "moss/data"),
         ("src/moss/ui/qml", "moss/ui/qml"),
         *pyside_datas,
+        *certifi_datas,
     ],
     hiddenimports=collect_submodules("moss")
     + pyside_hidden

@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from moss.gamesdb import match_game, verbs_for_game
 from moss.suggest import SuggestContext, suggest_fixes_rules
-from moss.updater import check_for_update
+from moss.updatecheck import check_for_update
 
 
 def test_match_hollow_knight() -> None:
@@ -30,8 +28,6 @@ def test_suggest_vcrun_from_log() -> None:
 
 
 def test_suggest_anticheat_from_db() -> None:
-    ctx = SuggestContext(game_name="Elden Ring", anti_cheat="eac", db_id="elden-ring")
-    # populate anti_cheat via match path
     from moss.gamesdb import match_game
 
     e = match_game("Elden Ring")
@@ -42,23 +38,82 @@ def test_suggest_anticheat_from_db() -> None:
 
 
 def test_update_channel_stable_mock(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "moss.updater._get",
-        lambda url: {"tag_name": "v0.2.8", "prerelease": False, "html_url": "https://example.com"},
-    )
-    info = check_for_update("0.2.2", channel="stable")
+    def fake_request(url: str, *, timeout: float = 12):
+        if url.endswith("/releases/latest"):
+            return (
+                {"tag_name": "v0.2.2", "prerelease": False, "html_url": "https://example.com"},
+                "",
+            )
+        return None, "unexpected"
+
+    monkeypatch.setattr("moss.updatecheck._request_json", fake_request)
+    info = check_for_update("0.2.1", channel="stable")
     assert info.available is True
-    assert "0.2.8" in info.latest
+    assert info.ok is True
+    assert "0.2.2" in info.latest
+
+
+def test_update_stable_fallback_when_latest_404(monkeypatch) -> None:
+    def fake_request(url: str, *, timeout: float = 12):
+        if url.endswith("/releases/latest"):
+            return None, "HTTP 404"
+        if "releases?per_page" in url:
+            return (
+                [
+                    {"tag_name": "v0.2.8", "prerelease": True, "html_url": "https://example.com/pre"},
+                    {"tag_name": "v0.2.2", "prerelease": False, "html_url": "https://example.com"},
+                ],
+                "",
+            )
+        return None, "unexpected"
+
+    monkeypatch.setattr("moss.updatecheck._request_json", fake_request)
+    info = check_for_update("0.2.1", channel="stable")
+    assert info.available is True
+    assert info.latest == "v0.2.2"
+
+
+def test_update_stable_only_prereleases(monkeypatch) -> None:
+    def fake_request(url: str, *, timeout: float = 12):
+        if url.endswith("/releases/latest"):
+            return None, "HTTP 404"
+        if "releases?per_page" in url:
+            return (
+                [{"tag_name": "v0.2.8", "prerelease": True, "html_url": "https://example.com/pre"}],
+                "",
+            )
+        return None, "unexpected"
+
+    monkeypatch.setattr("moss.updatecheck._request_json", fake_request)
+    info = check_for_update("0.2.2", channel="stable")
+    assert info.ok is True
+    assert info.available is False
+    assert "Beta" in info.message
 
 
 def test_update_channel_beta_prefers_prerelease(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "moss.updater._get_list",
-        lambda url: [
-            {"tag_name": "v0.2.8", "prerelease": True, "html_url": "https://example.com/pre"},
-            {"tag_name": "v0.2.2", "prerelease": False, "html_url": "https://example.com"},
-        ],
-    )
+    def fake_request(url: str, *, timeout: float = 12):
+        if "releases?per_page" in url:
+            return (
+                [
+                    {"tag_name": "v0.2.8", "prerelease": True, "html_url": "https://example.com/pre"},
+                    {"tag_name": "v0.2.2", "prerelease": False, "html_url": "https://example.com"},
+                ],
+                "",
+            )
+        return None, "unexpected"
+
+    monkeypatch.setattr("moss.updatecheck._request_json", fake_request)
     info = check_for_update("0.2.2", channel="beta")
     assert info.available is True
     assert info.latest == "v0.2.8"
+
+
+def test_update_network_error_shows_detail(monkeypatch) -> None:
+    def fake_request(url: str, *, timeout: float = 12):
+        return None, "ssl: CERTIFICATE_VERIFY_FAILED"
+
+    monkeypatch.setattr("moss.updatecheck._request_json", fake_request)
+    info = check_for_update("0.2.2", channel="stable")
+    assert info.ok is False
+    assert "ssl" in info.message.lower()
