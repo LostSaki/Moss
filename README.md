@@ -2,9 +2,11 @@
 
 **Native Linux / SteamOS launcher for Windows games.**
 
-Proton and Wine prefixes. Missing-DLL fixes. Steam artwork. `setup.exe` installs.
+Moss is for people who just want Windows games to *work* on Linux — without babysitting Wine prefixes, missing DLLs, winetricks verbs, and library artwork every time you add a title.
 
-Not Lutris. Not Electron. Not a Steam replacement.
+Point it at a folder of games (or a `setup.exe`). Moss creates a per-game Proton/Wine prefix, installs the usual Windows components, pulls Steam artwork, and launches the game.
+
+Not Lutris. Not Electron. Not a Steam replacement. Steam + Proton (or Wine) still need to be on the system.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-7FAF82?style=flat-square&labelColor=191A19)](https://www.python.org/)
 [![Qt Quick](https://img.shields.io/badge/UI-Qt%20Quick%20%2F%20QML-7C9BB8?style=flat-square&labelColor=191A19)](https://doc.qt.io/qt-6/qtquick-index.html)
@@ -15,17 +17,23 @@ Not Lutris. Not Electron. Not a Steam replacement.
 
 ## What it does
 
+Moss automates the boring Proton/Wine setup so you can play instead of debugging prefixes.
+
 | | |
 | --- | --- |
 | **Scan library** | Point at a parent folder of Windows games; pick which titles to import |
 | **Add one game** | Add a specific game folder or `.exe` without scanning siblings |
-| **Prefix** | Creates a per-game Wine/Proton `pfx` |
-| **Components** | Auto-installs winetricks verbs from defaults + a curated [games DB](docs/GAMES_DB.md) |
-| **Artwork** | SteamGridDB / Steam CDN covers so Steam shortcuts are not blank |
-| **Launch** | Runs under Proton (preferred) or Wine, with progress toasts |
-| **Fix** | Log recipes + suggested fixes (AI advisor planned for a future 0.3.x) |
+| **Installers** | Run a Windows `setup.exe` inside a prefix, then find the installed `.exe` |
+| **Prefix** | Creates a per-game Wine/Proton `pfx` (backup / open / delete from the game page) |
+| **Components** | Auto-installs winetricks verbs — Visual C++, `d3dcompiler_47`, plus extras from a curated [games DB](docs/GAMES_DB.md) |
+| **Artwork** | SteamGridDB / Steam CDN covers so Steam and desktop shortcuts are not blank |
+| **Launch** | Runs under Proton (preferred) or Wine, with Gamescope / MangoHud / GameMode wrappers when installed |
+| **Fix** | On launch failure, matches the log against recipes (missing DLLs, vcrun, anti-cheat) and suggests a fix |
+| **Steam** | Optional non-Steam shortcuts with grid/hero/logo art |
 | **Updates** | Stable / Beta channels; portable builds can Install + Rollback in-app |
-| **Support** | Error ring + export support pack for bug reports |
+| **Support** | Error ring + export a support pack (logs + debug report) for bug reports |
+
+**Still early (v0.2.9-pre).** A lot of the pipeline works; some titles, components, and UI paths are still being tested. Testers and contributors are welcome — see [Help wanted](#help-wanted).
 
 ---
 
@@ -85,6 +93,7 @@ python -m moss ui
 - `winetricks` (and/or `protontricks`) — required for component auto-install
 - Vulkan drivers (`vulkaninfo` should work)
 - Optional: [SteamGridDB](https://www.steamgriddb.com/) API key
+- Optional launch wrappers: `gamescope`, `mangohud`, `gamemoderun`
 
 ---
 
@@ -148,6 +157,19 @@ Settings → **Updates** (Stable / Beta), **Support** (diagnostics pack), **Runt
 - Games DB: `src/moss/data/games_db.yaml` — see [docs/GAMES_DB.md](docs/GAMES_DB.md)
 - Launch failure → rule-based **Suggested fixes**
 - Optional AI advisor is experimental and **not** a shipped 0.3.0 product release yet
+
+---
+
+## Help wanted
+
+Moss is pre-release and built in the open. Useful ways to help:
+
+- **Test a game** and report what happened (title, Proton vs Wine, log or Settings → Support pack)
+- **Add a games DB entry** for titles you verified — [docs/GAMES_DB.md](docs/GAMES_DB.md)
+- **Extend launch-fix recipes** in `src/moss/recipes.yaml`
+- **PRs** for bugs, packaging, and UI polish
+
+Open an issue or pull request on this repo.
 
 ---
 
