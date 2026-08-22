@@ -9,7 +9,7 @@ Not Lutris. Not Electron. Not a Steam replacement.
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-7FAF82?style=flat-square&labelColor=191A19)](https://www.python.org/)
 [![Qt Quick](https://img.shields.io/badge/UI-Qt%20Quick%20%2F%20QML-7C9BB8?style=flat-square&labelColor=191A19)](https://doc.qt.io/qt-6/qtquick-index.html)
 [![Linux](https://img.shields.io/badge/platform-Linux%20%2F%20SteamOS-B4B8B3?style=flat-square&labelColor=191A19)](#)
-[![Release](https://img.shields.io/badge/status-v0.2.2-7FAF82?style=flat-square&labelColor=191A19)](https://github.com/LostSaki/Moss/releases)
+[![Release](https://img.shields.io/badge/status-v0.2.8--pre-7FAF82?style=flat-square&labelColor=191A19)](https://github.com/LostSaki/Moss/releases)
 
 ---
 

@@ -47,24 +47,30 @@ def create_prefix(game_id: str, runtime: Runtime | None = None) -> Path:
         marker.write_text("no-runtime\n", encoding="utf-8")
         return prefix
     env = wine_env(runtime, prefix)
+    kwargs: dict = {
+        "env": env,
+        "check": False,
+        "timeout": 120,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if os.name == "nt":
+        # Hide console flash for wineboot on Windows
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         if runtime.kind == "proton":
-            subprocess.run(
-                [str(runtime.binary), "run", "wineboot", "-u"],
-                env=env,
-                check=False,
-                timeout=120,
-            )
+            subprocess.run([str(runtime.binary), "run", "wineboot", "-u"], **kwargs)
         else:
-            subprocess.run(
-                [str(runtime.binary), "wineboot", "-u"],
-                env=env,
-                check=False,
-                timeout=120,
-            )
-    except (OSError, subprocess.TimeoutExpired):
-        pass
-    marker.write_text("ok\n", encoding="utf-8")
+            subprocess.run([str(runtime.binary), "wineboot", "-u"], **kwargs)
+        marker.write_text("ok\n", encoding="utf-8")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        marker.write_text(f"error\n{exc}\n", encoding="utf-8")
+        try:
+            from moss.errors import record_error
+
+            record_error("wineboot", f"Prefix init failed: {exc}", game_id=game_id)
+        except Exception:
+            pass
     return prefix
 
 

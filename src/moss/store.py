@@ -46,7 +46,8 @@ class Game:
         return Path(self.prefix)
 
     def is_ready(self) -> bool:
-        return "vcrun2019" in self.verbs and "d3dcompiler_47" in self.verbs
+        have = set(self.verbs)
+        return "d3dcompiler_47" in have and ("vcrun2019" in have or "vcrun2022" in have)
 
 
 def _parse_kv_map(raw: Any) -> dict[str, str]:
@@ -165,10 +166,15 @@ def default_config() -> dict[str, Any]:
         "preferred_runtime": "auto",  # auto | proton | wine
         "default_runtime_id": "",
         "check_updates": True,
+        "update_channel": "stable",  # stable | beta
         "create_steam_shortcuts": True,
         "theme": "moss_dark",
         "glass_enabled": False,
         "onboarding_complete": False,
+        "ai_suggestions_enabled": False,
+        "ai_endpoint": "",
+        "ai_api_key": "",
+        "ai_model": "gpt-4o-mini",
     }
 
 

@@ -7,6 +7,16 @@ recipes:
     action: winetricks
     verb: vcrun2019
 
+  - id: vcrun2015
+    patterns:
+      - "MSVCR120"
+      - "MSVCP120"
+      - "VCRUNTIME120"
+      - "Visual C++ Redistributable"
+      - "vc_redist.x64"
+    action: winetricks
+    verb: vcrun2019
+
   - id: d3dcompiler
     patterns:
       - "d3dcompiler_47"

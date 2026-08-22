@@ -19,6 +19,7 @@ ApplicationWindow {
 
     Component.onCompleted: {
         Theme.syncFromController(moss)
+        moss.flushPendingToast()
         if (!moss.onboardingComplete) {
             onboarding.prepare()
             onboarding.open()
