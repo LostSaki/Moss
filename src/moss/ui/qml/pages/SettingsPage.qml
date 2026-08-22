@@ -530,14 +530,14 @@ Item {
                         Text {
                             width: parent.width
                             wrapMode: Text.WordWrap
-                            text: "Smart AI suggestions ship in 0.3.0. Rule-based suggestions already run after launch failures."
+                            text: "AI log advisor is available when enabled below. Logs are redacted (basenames only) before any network call."
                             color: Theme.textMuted
                             font.pixelSize: Theme.fontCaption
                         }
                         MossToggle {
                             id: aiOn
                             checked: !!cfg.ai_suggestions_enabled
-                            text: "Enable experimental AI suggestions (0.3.0)"
+                            text: "Enable AI suggestions (opt-in)"
                         }
                         TextField {
                             id: aiEndpoint
