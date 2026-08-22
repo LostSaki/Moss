@@ -60,6 +60,7 @@ ApplicationWindow {
             failApply.visible = !!canFix
             failDialog.gameId = gameId || ""
             failDialog.recipeId = recipeId || ""
+            failDialog.suggestions = moss.lastSuggestions() || []
             failDialog.open()
         }
         function onRunningChanged() { }
@@ -249,9 +250,10 @@ ApplicationWindow {
         id: failDialog
         property string gameId: ""
         property string recipeId: ""
+        property var suggestions: []
         modal: true
         anchors.centerIn: Overlay.overlay
-        width: 440
+        width: 460
         title: "Launch failed"
         standardButtons: Dialog.NoButton
         background: Rectangle {
@@ -278,6 +280,56 @@ ApplicationWindow {
                 color: Theme.textSecondary
                 font.pixelSize: Theme.fontSecondary
             }
+            Text {
+                visible: failDialog.suggestions && failDialog.suggestions.length > 0
+                text: "Suggested fixes"
+                color: Theme.textMuted
+                font.pixelSize: Theme.fontCaption
+                font.weight: Font.DemiBold
+            }
+            Repeater {
+                model: failDialog.suggestions || []
+                delegate: Column {
+                    width: parent.width
+                    spacing: 4
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: (modelData.source === "ai" ? "[AI] " : "") + (modelData.title || "")
+                        color: Theme.textPrimary
+                        font.pixelSize: Theme.fontSecondary
+                    }
+                    Text {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        visible: !!(modelData.detail)
+                        text: modelData.detail || ""
+                        color: Theme.textMuted
+                        font.pixelSize: Theme.fontCaption
+                    }
+                    MossSecondaryButton {
+                        visible: modelData.action === "winetricks" && !!(modelData.verb)
+                        text: "Install " + (modelData.verb || "")
+                        onClicked: {
+                            moss.runWinetricksVerb(failDialog.gameId, modelData.verb)
+                            failDialog.close()
+                        }
+                    }
+                    MossSecondaryButton {
+                        visible: modelData.action === "change_exe"
+                        text: "Configure / Change EXE…"
+                        onClicked: {
+                            failDialog.close()
+                            gameConfig.openFor(failDialog.gameId)
+                        }
+                    }
+                    MossSecondaryButton {
+                        visible: modelData.action === "open_url" && !!(modelData.url)
+                        text: "Open link"
+                        onClicked: moss.openUrl(modelData.url)
+                    }
+                }
+            }
             Row {
                 spacing: Theme.space8
                 anchors.right: parent.right
@@ -297,8 +349,8 @@ ApplicationWindow {
                         failDialog.close()
                     }
                 }
-                MossSecondaryButton {
-                    text: "Dismiss"
+                MossButton {
+                    text: "Close"
                     onClicked: failDialog.close()
                 }
             }

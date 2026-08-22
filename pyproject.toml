@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moss"
-version = "0.2.8"
+version = "0.3.0"
 description = "Native Linux/SteamOS app for Windows games: Proton/Wine prefixes, missing-DLL fixes, Steam artwork, and setup.exe installs."
 readme = "README.md"
 requires-python = ">=3.11"

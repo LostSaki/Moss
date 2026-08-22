@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+- **AI log advisor** (opt-in): OpenAI-compatible endpoint in Settings → Support; redacted log context only
+- Launch-failed dialog shows **Suggested fixes** (rules always; AI when enabled) with Install verb / Change EXE actions
+
 ## 0.2.8 (pre-release)
 
 ### Added
@@ -8,8 +14,7 @@
 - Progress toasts for prefix prep and component installs; clearer missing-winetricks message
 - Update **Stable / Beta** channels; portable **Install update** + **Rollback**
 - Settings → **Support**: error ring, export support pack, GitHub Issues link
-- Rule-based launch suggestions + `SuggestContext` hooks for the 0.3.0 AI advisor
-- Experimental AI toggle (endpoint/key) ready for 0.3.0
+- Rule-based launch suggestions + `SuggestContext` hooks for the AI advisor
 - Quieter wineboot; Change EXE hint when the picked binary looks like a launcher
 
 ### Fixed
